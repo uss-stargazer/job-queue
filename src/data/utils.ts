@@ -16,7 +16,12 @@ export const makeJsonData = async <S extends z.ZodType>(
   jsonPath: string,
   schema: S,
 ): Promise<JsonData<z.infer<S>>> => {
-  const json = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+  let json;
+  try {
+    json = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Couldn't open '${jsonPath}': ${error}`);
+  }
   const schemaUrl = json['$schema'];
   const parsed = schema.safeParse(json);
   if (!parsed.success)
