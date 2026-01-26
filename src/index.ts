@@ -1,24 +1,51 @@
 import chalk from 'chalk';
 import clear from 'clear';
 import figlet from 'figlet';
-import { select } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
 import actions, { actionNames } from './actions.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
+import { Config, getConfig } from './data/config.js';
+import { JsonData } from './data/utils.js';
 
-export default async function main(
-  jobqueueJsonPath: string,
-  projectpoolJsonPath: string,
-  editor?: string,
-): Promise<void> {
-  const jobQueue = await getJobQueue(jobqueueJsonPath);
-  const projectPool = await getProjectPool(projectpoolJsonPath);
+interface Arguments {
+  overridePaths: Partial<{ jobqueue: string; projectpool: string }>;
+  overrideEditor?: string;
+}
 
+const updateConfig = async (
+  config: JsonData<Config>,
+  paths: Arguments['overridePaths'],
+): Promise<void> => {
+  const pathKeys = [...Object.keys(paths)] as (keyof typeof paths)[];
+  if (pathKeys.some((key) => paths[key] && paths[key] !== config.data[key])) {
+    const shouldUpdate = confirm({
+      message:
+        'Supplied path is different than in config. Want to update config?',
+    });
+    if (shouldUpdate) {
+      pathKeys.forEach((key) => (config.data[key] = paths[key]));
+      await config.sync();
+    }
+  }
+};
+
+export default async function main(args: Arguments): Promise<void> {
   clear();
   console.log(
     chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
   );
+
+  const config = await getConfig(args.overridePaths);
+  const jobQueue = await getJobQueue(
+    args.overridePaths.jobqueue ?? config.data.jobqueue,
+  );
+  const projectPool = await getProjectPool(
+    args.overridePaths.projectpool ?? config.data.projectpool,
+  );
+  await updateConfig(config, args.overridePaths);
+  console.log(); // New separation line
 
   try {
     while (true) {
@@ -27,7 +54,7 @@ export default async function main(
         choices: actionNames,
       });
 
-      await actions[action]({ jobQueue, projectPool }, editor);
+      await actions[action]({ jobQueue, projectPool }, args.overrideEditor);
 
       console.log(); // New line for action seperation
     }

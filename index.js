@@ -12,21 +12,33 @@ program
     'A CLI app to keep track of jobs/tasks built around a couple of JSON files.',
   )
   .version('0.0.0')
-  .option('-j, --jobqueue <path>', 'path to jobqueue.json')
-  .option('-p, --projectpool <path>', 'path to projectpool.json')
+  .option(
+    '-j, --jobqueue <path>',
+    'path to jobqueue.json (optional, fallbacks to config)',
+  )
+  .option(
+    '-p, --projectpool <path>',
+    'path to projectpool.json (optional, fallbacks to config)',
+  )
   .option(
     '-e, --editor <editor>',
-    'name of editor to use (fallbacks to env vars)',
+    'name of editor to use (optional, fallbacks to config)',
   )
   .action(async (options) => {
     if (!options.jobqueue || options.jobqueue.length === 0)
-      options.jobqueue = './jobqueue.json';
+      options.jobqueue = undefined;
     if (!options.projectpool || options.projectpool.length === 0)
-      options.projectpool = './projectpool.json';
+      options.projectpool = undefined;
     if (options.editor && options.editor.length === 0)
       options.editor = undefined;
 
-    await main(options.jobqueue, options.projectpool, options.editor)
+    await main({
+      overridePaths: {
+        jobqueue: options.jobqueue,
+        projectpool: options.projectpool,
+      },
+      overrideEditor: options.editor,
+    })
       .then(() => {
         console.log(chalk.cyanBright('🖖 Live long and prosper...'));
         process.exit();
