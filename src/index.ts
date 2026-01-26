@@ -3,7 +3,11 @@ import clear from 'clear';
 import figlet from 'figlet';
 import { confirm, select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
-import actions, { actionNames } from './actions.js';
+import actions, {
+  actionNames,
+  actionsDependentOnJobs,
+  actionsDependentOnProjects,
+} from './actions.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
 import { Config, getConfig } from './data/config.js';
@@ -51,7 +55,27 @@ export default async function main(args: Arguments): Promise<void> {
     while (true) {
       const action = await select({
         message: 'Select action',
-        choices: actionNames,
+        choices: actionNames.map((action) => {
+          if (
+            actionsDependentOnJobs.includes(action) &&
+            jobQueue.data.queue.length === 0
+          )
+            return {
+              name: action,
+              value: action,
+              disabled: '(Empty job queue)',
+            };
+          else if (
+            actionsDependentOnProjects.includes(action) &&
+            projectPool.data.pool.length === 0
+          )
+            return {
+              name: action,
+              value: action,
+              disabled: '(Empty project pool)',
+            };
+          else return { name: action, value: action };
+        }),
       });
 
       await actions[action]({ jobQueue, projectPool }, args.overrideEditor);

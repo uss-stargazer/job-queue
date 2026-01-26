@@ -16,6 +16,12 @@ export const actionNames = [
 
 export type ActionName = (typeof actionNames)[number];
 
+export const actionsDependentOnJobs: ActionName[] = ['dequeueJob', 'editQueue'];
+export const actionsDependentOnProjects: ActionName[] = [
+  'enqueueJob',
+  'editProject',
+];
+
 const actions: {
   [K in ActionName]: (
     d: {
