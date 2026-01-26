@@ -1,10 +1,50 @@
 import * as tmp from 'tmp-promise';
-import { AbortError } from './definitions.js';
 import fs from 'fs/promises';
 import chalk from 'chalk';
 import * as z from 'zod';
 import openEditor from 'open-editor';
 import { confirm } from '@inquirer/prompts';
+import { AbortError } from '../utils/index.js';
+
+export type JsonData<S extends z.ZodType> = {
+  data: z.infer<S>;
+  schema?: string;
+  sync: () => Promise<void>;
+};
+
+export const makeJsonData = async <S extends z.ZodType>(
+  jsonPath: string,
+  schema: S,
+): Promise<JsonData<S>> => {
+  const json = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+  const schemaUrl = json['$schema'];
+  const parsed = schema.safeParse(json);
+  if (!parsed.success)
+    throw new Error(
+      `JSON at '${jsonPath}' does not match schema: ${parsed.error.message}`,
+    );
+  return {
+    data: parsed.data,
+    schema: typeof schemaUrl === 'string' ? schemaUrl : undefined,
+    sync: async (): Promise<void> => {
+      const encoded = schema.encode(parsed.data);
+      return fs.writeFile(
+        jsonPath,
+        JSON.stringify(
+          typeof schemaUrl === 'string'
+            ? {
+                $schema: schemaUrl,
+                ...(encoded as object) /* Must be object if schemaUrl is defined */,
+              }
+            : encoded,
+          undefined,
+          '  ',
+        ),
+        'utf8',
+      );
+    },
+  };
+};
 
 type CheckFunction<T> = (
   input: T,
@@ -114,14 +154,3 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
         })())
   );
 };
-
-/** Reorders in place */
-export function reorder<T>(array: T[], newIndecies: number[]): void {
-  if (array.length !== newIndecies.length)
-    throw new RangeError('Indecies array must be same length as target array');
-
-  const originalArray = [...array];
-  newIndecies.forEach((originalIdx, idx) => {
-    array[idx] = originalArray[originalIdx];
-  });
-}

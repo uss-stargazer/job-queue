@@ -3,12 +3,10 @@ import clear from 'clear';
 import figlet from 'figlet';
 import { select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
-import {
-  JobQueueSchema,
-  makeJsonData,
-  ProjectPoolSchema,
-} from './definitions.js';
 import actions, { actionNames } from './actions.js';
+import { makeJsonData } from './data/utils.js';
+import { JobQueueSchema } from './data/jobqueue.js';
+import { ProjectPoolSchema } from './data/projectpool.js';
 
 export default async function main(
   jobqueueJsonPath: string,
