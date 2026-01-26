@@ -13,6 +13,10 @@ export default tseslint.config(
   eslint.configs.recommended,
   eslintConfigPrettier,
   {
+    files: ['**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     extends: [...tseslint.configs.recommended],
 
     files: ['**/*.ts', '**/*.mts'],
