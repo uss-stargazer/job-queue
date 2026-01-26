@@ -1,30 +1,36 @@
 import { confirm } from '@inquirer/prompts';
 import * as z from 'zod';
-import { haveUserUpdateData, JsonData } from './utils.js';
-import { JobQueueSchema } from './jobqueue.js';
+import { haveUserUpdateData, JsonData, makeJsonData } from './utils.js';
+import { JobQueue } from './jobqueue.js';
 
 // Types / Schemas
 
-export const ProjectSchema = z.object({
+const ProjectSchema = z.object({
   name: z.string().trim().nonempty(),
   description: z.string().optional(),
   repo: z.url().optional(),
   status: z.enum(['active', 'inactive', 'complete']),
 });
 export type Project = z.infer<typeof ProjectSchema>;
-export const ProjectPoolSchema = z.object({
+const ProjectPoolSchema = z.object({
   pool: z.array(ProjectSchema),
 });
+export type ProjectPool = z.infer<typeof ProjectPoolSchema>;
 
 // Methods
+
+export const getProjectPool = async (
+  jsonPath: string,
+): Promise<JsonData<ProjectPool>> =>
+  await makeJsonData(jsonPath, ProjectPoolSchema);
 
 export const checkProjectName = (name: string, projects: Project[]): boolean =>
   projects.some((project) => project.name === name);
 
 export const updateProject = async (
   project: Project,
-  projectPool: JsonData<typeof ProjectPoolSchema>,
-  jobQueue: JsonData<typeof JobQueueSchema>,
+  projectPool: JsonData<ProjectPool>,
+  jobQueue: JsonData<JobQueue>,
   editor?: string,
 ): Promise<Project | 'deleted'> => {
   const pool = projectPool.data.pool;

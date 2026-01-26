@@ -1,12 +1,8 @@
 import chalk from 'chalk';
 import { confirm, search } from '@inquirer/prompts';
 import sortableCheckbox from './utils/sortableCheckbox.js';
-import {
-  Project,
-  ProjectPoolSchema,
-  updateProject,
-} from './data/projectpool.js';
-import { Job, JobQueueSchema, updateJob } from './data/jobqueue.js';
+import { Project, ProjectPool, updateProject } from './data/projectpool.js';
+import { Job, JobQueue, updateJob } from './data/jobqueue.js';
 import { JsonData } from './data/utils.js';
 import { AbortError, reorder } from './utils/index.js';
 
@@ -23,8 +19,8 @@ export type ActionName = (typeof actionNames)[number];
 const actions: {
   [K in ActionName]: (
     d: {
-      jobQueue: JsonData<typeof JobQueueSchema>;
-      projectPool: JsonData<typeof ProjectPoolSchema>;
+      jobQueue: JsonData<JobQueue>;
+      projectPool: JsonData<ProjectPool>;
     },
     editor?: string,
   ) => Promise<void>;

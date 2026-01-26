@@ -4,20 +4,16 @@ import figlet from 'figlet';
 import { select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
 import actions, { actionNames } from './actions.js';
-import { makeJsonData } from './data/utils.js';
-import { JobQueueSchema } from './data/jobqueue.js';
-import { ProjectPoolSchema } from './data/projectpool.js';
+import { getJobQueue } from './data/jobqueue.js';
+import { getProjectPool } from './data/projectpool.js';
 
 export default async function main(
   jobqueueJsonPath: string,
   projectpoolJsonPath: string,
   editor?: string,
 ): Promise<void> {
-  const jobQueue = await makeJsonData(jobqueueJsonPath, JobQueueSchema);
-  const projectPool = await makeJsonData(
-    projectpoolJsonPath,
-    ProjectPoolSchema,
-  );
+  const jobQueue = await getJobQueue(jobqueueJsonPath);
+  const projectPool = await getProjectPool(projectpoolJsonPath);
 
   clear();
   console.log(

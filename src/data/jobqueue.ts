@@ -1,6 +1,6 @@
 import * as z from 'zod';
-import { haveUserUpdateData, JsonData } from './utils.js';
-import { checkProjectName, ProjectPoolSchema } from './projectpool.js';
+import { haveUserUpdateData, JsonData, makeJsonData } from './utils.js';
+import { checkProjectName, ProjectPool } from './projectpool.js';
 
 // Types / Schemas
 
@@ -11,15 +11,20 @@ export const JobSchema = z.object({
   project: z.string().trim().nonempty(),
 });
 export type Job = z.infer<typeof JobSchema>;
-export const JobQueueSchema = z.object({
+const JobQueueSchema = z.object({
   queue: z.array(JobSchema),
 });
+export type JobQueue = z.infer<typeof JobQueueSchema>;
 
 // Methods
 
+export const getJobQueue = async (
+  jsonPath: string,
+): Promise<JsonData<JobQueue>> => await makeJsonData(jsonPath, JobQueueSchema);
+
 export const updateJob = async (
   job: Job,
-  projectPool: JsonData<typeof ProjectPoolSchema>,
+  projectPool: JsonData<ProjectPool>,
   editor?: string,
 ): Promise<Job | 'deleted'> => {
   const pool = projectPool.data.pool;

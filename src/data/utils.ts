@@ -6,8 +6,8 @@ import openEditor from 'open-editor';
 import { confirm } from '@inquirer/prompts';
 import { AbortError } from '../utils/index.js';
 
-export type JsonData<S extends z.ZodType> = {
-  data: z.infer<S>;
+export type JsonData<T> = {
+  data: T;
   schema?: string;
   sync: () => Promise<void>;
 };
@@ -15,7 +15,7 @@ export type JsonData<S extends z.ZodType> = {
 export const makeJsonData = async <S extends z.ZodType>(
   jsonPath: string,
   schema: S,
-): Promise<JsonData<S>> => {
+): Promise<JsonData<z.infer<S>>> => {
   const json = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
   const schemaUrl = json['$schema'];
   const parsed = schema.safeParse(json);
