@@ -37,6 +37,10 @@ export const updateJob = async (
       editor,
       errorHead: 'Rejected job',
       tmpPrefix: 'jobqueue-job',
+      tooltips: [
+        'Opening job JSON in editor for editing.',
+        'Delete file contents to finish the job.',
+      ],
     },
     {
       preparse(rawContents) {

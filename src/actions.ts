@@ -40,9 +40,6 @@ const actions: {
       return;
     }
 
-    console.log(chalk.blue('[i]'), 'Opening job JSON in editor for editing.');
-    console.log(chalk.blue('[i]'), 'Delete file contents to finish the job.');
-
     try {
       const updatedJob = await updateJob(job, projectPool, editor);
       if (updatedJob !== 'deleted') {
@@ -77,8 +74,6 @@ const actions: {
       project: '[some-project]',
       updates: 'Put notes here.',
     };
-
-    console.log(chalk.blue('[i]'), 'Opening job JSON in editor for editing.');
 
     try {
       const job = await updateJob(placeholderJob, projectPool, editor);
@@ -121,9 +116,6 @@ const actions: {
       .filter(({ checked }) => checked);
 
     if (checkedActivities.length > 0) {
-      console.log(chalk.blue('[i]'), 'Opening selected jobs for editing.');
-      console.log(chalk.blue('[i]'), 'Delete file contents to delete a job.');
-
       for (
         let checkedIdx = 0;
         checkedIdx < checkedActivities.length;
@@ -165,11 +157,6 @@ const actions: {
       repo: 'https://some.project.com/project',
       status: 'inactive',
     };
-
-    console.log(
-      chalk.blue('[i]'),
-      'Opening project JSON in editor for editing.',
-    );
 
     try {
       const project = await updateProject(
@@ -219,15 +206,6 @@ const actions: {
     const [project] = pool.splice(projectIdx, 1);
 
     // Do the editing
-
-    console.log(
-      chalk.blue('[i]'),
-      'Opening project JSON in editor for editing.',
-    );
-    console.log(
-      chalk.blue('[i]'),
-      'Delete file contents to delete the project.',
-    );
 
     try {
       const updatedProject = await updateProject(

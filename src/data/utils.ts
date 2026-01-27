@@ -2,9 +2,9 @@ import * as tmp from 'tmp-promise';
 import fs from 'fs/promises';
 import chalk from 'chalk';
 import * as z from 'zod';
-import openEditor from 'open-editor';
 import { confirm } from '@inquirer/prompts';
 import { AbortError } from '../utils/index.js';
+import { editInteractively } from 'edit-like-git';
 
 export type JsonData<T> = {
   data: T;
@@ -62,6 +62,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     editor: string;
     errorHead: string;
     tmpPrefix: string;
+    tooltips: string[];
   }>,
   checks: Partial<{
     preparse: CheckFunction<string>;
@@ -72,10 +73,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     prefix: options.tmpPrefix,
     postfix: '.json',
   });
-  await fs.writeFile(
-    tmpFile.path,
-    JSON.stringify(schema.encode(data), undefined, '  '),
-  );
+  const initialContents = JSON.stringify(schema.encode(data), undefined, '  ');
 
   let updatedResult: ReturnType<typeof schema.safeParse> | undefined =
     undefined;
@@ -85,10 +83,13 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
 
     const controller = new AbortController();
     const signal = controller.signal;
-    const editorPromise = openEditor([tmpFile.path], {
-      wait: true,
-      editor: options.editor,
-    });
+    const editorPromise = editInteractively(
+      tmpFile.path,
+      initialContents,
+      options.editor,
+      options.tooltips,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Hacky hack to print abort after edit tooltips
     const abortPromise = confirm(
       { message: 'Type `y` to abort...' },
       { signal },
@@ -104,12 +105,11 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
           throw new AbortError('User aborted action');
         }
       });
-    await Promise.race([editorPromise, abortPromise]);
+    const updatedJsonString = await Promise.race([editorPromise, abortPromise]);
     controller.abort();
+    if (typeof updatedJsonString !== 'string') return undefined;
 
     // Load back editor contents and validate them
-
-    const updatedJsonString = await fs.readFile(tmpFile.path, 'utf8');
 
     if (checks.preparse) {
       const preparseError = checks.preparse(updatedJsonString);

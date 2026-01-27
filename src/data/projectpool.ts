@@ -46,6 +46,10 @@ export const updateProject = async (
       editor,
       errorHead: 'Rejected project',
       tmpPrefix: 'jobqueue-project',
+      tooltips: [
+        'Opening project JSON in editor for editing.',
+        'Delete file contents to delete the project.',
+      ],
     },
     {
       preparse(rawContents) {
