@@ -97,7 +97,7 @@ const actions: {
     const reorderedQueueIdxs = await sortableCheckbox({
       message: 'Reorder queue and/or select jobs to edit',
       choices: queue.map((job, jobIdx) => ({
-        name: `[${job.project}]\t${job.name}`,
+        name: `[${job.project}] ${job.name}`,
         value: jobIdx,
       })),
     });
@@ -127,10 +127,10 @@ const actions: {
           const updatedJob = await updateJob(job, projectPool, config.data);
           if (updatedJob === 'deleted') {
             queue.splice(jobIdx, 1);
-            console.log(chalk.green('✔'), `Job [${job.name}] deleted.`);
+            console.log(chalk.green('✔'), `Job '${job.name}' deleted.`);
           } else {
             queue[jobIdx] = updatedJob;
-            console.log(chalk.green('✔'), `Job [${updatedJob.name}] edited.`);
+            console.log(chalk.green('✔'), `Job '${updatedJob.name}' edited.`);
           }
 
           await jobQueue.sync();
