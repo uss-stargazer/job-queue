@@ -72,7 +72,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     prefix: options.tmpPrefix,
     postfix: '.json',
   });
-  const initialContents = JSON.stringify(
+  let contents: string | void = JSON.stringify(
     schema instanceof z.ZodObject && options.jsonSchemaUrl
       ? { $schema: options.jsonSchemaUrl, ...(schema.encode(data) as object) }
       : schema.encode(data),
@@ -90,7 +90,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     const signal = controller.signal;
     const editorPromise = editInteractively(
       tmpFile.path,
-      initialContents,
+      contents,
       options.editor,
       options.tooltips,
     );
@@ -110,14 +110,14 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
           throw new AbortError('User aborted action');
         }
       });
-    const updatedJsonString = await Promise.race([editorPromise, abortPromise]);
+    contents = await Promise.race([editorPromise, abortPromise]);
     controller.abort();
-    if (typeof updatedJsonString !== 'string') return undefined;
+    if (typeof contents !== 'string') return undefined;
 
     // Load back editor contents and validate them
 
     if (checks.preparse) {
-      const preparseError = checks.preparse(updatedJsonString);
+      const preparseError = checks.preparse(contents);
       if (preparseError === 'pass') {
         updatedResult = undefined;
         break;
@@ -130,7 +130,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
       }
     }
 
-    updatedResult = schema.safeParse(JSON.parse(updatedJsonString));
+    updatedResult = schema.safeParse(JSON.parse(contents));
 
     if (updatedResult.success) {
       if (checks.postparse) {
