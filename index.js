@@ -25,20 +25,11 @@ program
     'name of editor to use (optional, fallbacks to config)',
   )
   .action(async (options) => {
-    if (!options.jobqueue || options.jobqueue.length === 0)
-      options.jobqueue = undefined;
-    if (!options.projectpool || options.projectpool.length === 0)
-      options.projectpool = undefined;
-    if (options.editor && options.editor.length === 0)
-      options.editor = undefined;
+    ['jobqueue', 'projectpool', 'editor'].forEach((key) => {
+      if (!options[key] || options[key].length === 0) delete options[key];
+    });
 
-    await main({
-      overridePaths: {
-        jobqueue: options.jobqueue,
-        projectpool: options.projectpool,
-      },
-      overrideEditor: options.editor,
-    })
+    await main({ ...options })
       .then(() => {
         console.log(chalk.cyanBright('🖖 Live long and prosper...'));
         process.exit();

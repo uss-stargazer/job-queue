@@ -2,19 +2,22 @@ import { confirm } from '@inquirer/prompts';
 import * as z from 'zod';
 import { haveUserUpdateData, JsonData, makeJsonData } from './utils.js';
 import { JobQueue } from './jobqueue.js';
+import { Config } from './config.js';
 
 // Types / Schemas
 
-const ProjectSchema = z.object({
-  name: z.string().trim().nonempty(),
-  description: z.string().optional(),
-  repo: z.url().optional(),
-  status: z.enum(['active', 'inactive', 'complete']),
-});
+// prettier-ignore
+export const ProjectSchema = z.object({
+  name: z.string().trim().nonempty().meta({title: 'Project name', description: 'Name of the project. Used as identifier.'}),
+  description: z.string().optional().meta({title: 'Project description', description: 'Longer description of the project. For your benefit, optional.'}),
+  repo: z.url().optional().meta({title: 'Project repository', description: 'URL to project repository. For your benefit, optional.'}),
+  status: z.enum(['active', 'inactive', 'complete']).meta({title: 'Project status', description: "Status of this project. 'active': they are referenced in jobqueue.json, 'inactive': they aren't referenced anywhere and aren't done, 'complete': they're done."}),
+}).meta({title: 'Project', description: 'A single project entry for JobQueue (usually matches up with a GitHub repo, if you use that).'});
 export type Project = z.infer<typeof ProjectSchema>;
-const ProjectPoolSchema = z.object({
-  pool: z.array(ProjectSchema),
-});
+// prettier-ignore
+export const ProjectPoolSchema = z.object({
+  pool: z.array(ProjectSchema).meta({description: 'Set of projects, works in progress or just ideas.'}),
+}).meta({title: 'Root project pool', description: 'Root object for pool of projects.'});
 export type ProjectPool = z.infer<typeof ProjectPoolSchema>;
 
 // Methods
@@ -31,7 +34,7 @@ export const updateProject = async (
   project: Project,
   projectPool: JsonData<ProjectPool>,
   jobQueue: JsonData<JobQueue>,
-  editor?: string,
+  config: Config,
 ): Promise<Project | 'deleted'> => {
   const pool = projectPool.data.pool;
   const jobsReferencingProject = jobQueue.data.queue.filter(
@@ -43,13 +46,14 @@ export const updateProject = async (
     ProjectSchema,
     project,
     {
-      editor,
+      editor: config.editor,
       errorHead: 'Rejected project',
       tmpPrefix: 'jobqueue-project',
       tooltips: [
         'Opening project JSON in editor for editing.',
         'Delete file contents to delete the project.',
       ],
+      jsonSchemaUrl: config.schemas.project,
     },
     {
       preparse(rawContents) {

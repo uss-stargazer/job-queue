@@ -8,7 +8,6 @@ import { editInteractively } from 'edit-like-git';
 
 export type JsonData<T> = {
   data: T;
-  schema?: string;
   sync: () => Promise<void>;
 };
 
@@ -30,7 +29,6 @@ export const makeJsonData = async <S extends z.ZodType>(
     );
   return {
     data: parsed.data,
-    schema: typeof schemaUrl === 'string' ? schemaUrl : undefined,
     sync: async (): Promise<void> => {
       const encoded = schema.encode(parsed.data);
       return fs.writeFile(
@@ -63,6 +61,7 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     errorHead: string;
     tmpPrefix: string;
     tooltips: string[];
+    jsonSchemaUrl: string;
   }>,
   checks: Partial<{
     preparse: CheckFunction<string>;
@@ -73,7 +72,13 @@ export const haveUserUpdateData = async <S extends z.ZodType>(
     prefix: options.tmpPrefix,
     postfix: '.json',
   });
-  const initialContents = JSON.stringify(schema.encode(data), undefined, '  ');
+  const initialContents = JSON.stringify(
+    schema instanceof z.ZodObject && options.jsonSchemaUrl
+      ? { $schema: options.jsonSchemaUrl, ...(schema.encode(data) as object) }
+      : schema.encode(data),
+    undefined,
+    '  ',
+  );
 
   let updatedResult: ReturnType<typeof schema.safeParse> | undefined =
     undefined;

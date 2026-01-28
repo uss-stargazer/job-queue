@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import clear from 'clear';
 import figlet from 'figlet';
-import { confirm, select } from '@inquirer/prompts';
+import { select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
 import actions, {
   actionNames,
@@ -10,45 +10,19 @@ import actions, {
 } from './actions.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
-import { Config, getConfig } from './data/config.js';
-import { JsonData } from './data/utils.js';
+import { ConfigIn, getConfig } from './data/config.js';
 
-interface Arguments {
-  overridePaths: Partial<{ jobqueue: string; projectpool: string }>;
-  overrideEditor?: string;
-}
-
-const updateConfig = async (
-  config: JsonData<Config>,
-  paths: Arguments['overridePaths'],
-): Promise<void> => {
-  const pathKeys = [...Object.keys(paths)] as (keyof typeof paths)[];
-  if (pathKeys.some((key) => paths[key] && paths[key] !== config.data[key])) {
-    const shouldUpdate = confirm({
-      message:
-        'Supplied path is different than in config. Want to update config?',
-    });
-    if (shouldUpdate) {
-      pathKeys.forEach((key) => (config.data[key] = paths[key]));
-      await config.sync();
-    }
-  }
-};
-
-export default async function main(args: Arguments): Promise<void> {
+export default async function main(
+  overrideConfig: Partial<ConfigIn>,
+): Promise<void> {
   clear();
   console.log(
     chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
   );
 
-  const config = await getConfig(args.overridePaths);
-  const jobQueue = await getJobQueue(
-    args.overridePaths.jobqueue ?? config.data.jobqueue,
-  );
-  const projectPool = await getProjectPool(
-    args.overridePaths.projectpool ?? config.data.projectpool,
-  );
-  await updateConfig(config, args.overridePaths);
+  const config = await getConfig(overrideConfig);
+  const jobQueue = await getJobQueue(config.data.jobqueue);
+  const projectPool = await getProjectPool(config.data.projectpool);
   console.log(); // New separation line
 
   try {
@@ -78,7 +52,7 @@ export default async function main(args: Arguments): Promise<void> {
         }),
       });
 
-      await actions[action]({ jobQueue, projectPool }, args.overrideEditor);
+      await actions[action](jobQueue, projectPool, config);
 
       console.log(); // New line for action seperation
     }

@@ -5,6 +5,7 @@ import { Project, ProjectPool, updateProject } from './data/projectpool.js';
 import { Job, JobQueue, updateJob } from './data/jobqueue.js';
 import { JsonData } from './data/utils.js';
 import { AbortError, reorder } from './utils/index.js';
+import { Config } from './data/config.js';
 
 export const actionNames = [
   'dequeueJob',
@@ -24,14 +25,12 @@ export const actionsDependentOnProjects: ActionName[] = [
 
 const actions: {
   [K in ActionName]: (
-    d: {
-      jobQueue: JsonData<JobQueue>;
-      projectPool: JsonData<ProjectPool>;
-    },
-    editor?: string,
+    jobQueue: JsonData<JobQueue>,
+    projectPool: JsonData<ProjectPool>,
+    config: JsonData<Config>,
   ) => Promise<void>;
 } = {
-  dequeueJob: async ({ jobQueue, projectPool }, editor) => {
+  dequeueJob: async (jobQueue, projectPool, config) => {
     const queue = jobQueue.data.queue;
     const job = queue.shift();
 
@@ -41,7 +40,7 @@ const actions: {
     }
 
     try {
-      const updatedJob = await updateJob(job, projectPool, editor);
+      const updatedJob = await updateJob(job, projectPool, config.data);
       if (updatedJob !== 'deleted') {
         queue.unshift(updatedJob);
         console.log(chalk.blue('[i]'), 'Job edited');
@@ -58,7 +57,7 @@ const actions: {
     }
   },
 
-  enqueueJob: async ({ jobQueue, projectPool }, editor) => {
+  enqueueJob: async (jobQueue, projectPool, config) => {
     if (projectPool.data.pool.length === 0) {
       console.log(chalk.red('[e]'), 'No projects in pool to make job for.');
       return;
@@ -76,7 +75,7 @@ const actions: {
     };
 
     try {
-      const job = await updateJob(placeholderJob, projectPool, editor);
+      const job = await updateJob(placeholderJob, projectPool, config.data);
       if (job === 'deleted') throw new AbortError('Enqueue aborted');
 
       queue.push(job);
@@ -88,7 +87,7 @@ const actions: {
     }
   },
 
-  editQueue: async ({ jobQueue, projectPool }, editor) => {
+  editQueue: async (jobQueue, projectPool, config) => {
     const queue = jobQueue.data.queue;
     if (queue.length === 0) {
       console.log(chalk.red('[e]'), 'No jobs in queue.');
@@ -125,7 +124,7 @@ const actions: {
 
         try {
           const job = queue[jobIdx];
-          const updatedJob = await updateJob(job, projectPool, editor);
+          const updatedJob = await updateJob(job, projectPool, config.data);
           if (updatedJob === 'deleted') {
             queue.splice(jobIdx, 1);
             console.log(chalk.green('✔'), `Job [${job.name}] deleted.`);
@@ -149,7 +148,7 @@ const actions: {
     }
   },
 
-  addProject: async ({ projectPool, jobQueue }, editor) => {
+  addProject: async (jobQueue, projectPool, config) => {
     const pool = projectPool.data.pool;
     const placeholderProject: Project = {
       name: '[some-project]',
@@ -163,7 +162,7 @@ const actions: {
         placeholderProject,
         projectPool,
         jobQueue,
-        editor,
+        config.data,
       );
       if (project === 'deleted') throw new AbortError('Add project aborted');
 
@@ -177,7 +176,7 @@ const actions: {
     }
   },
 
-  editProject: async ({ projectPool, jobQueue }, editor) => {
+  editProject: async (jobQueue, projectPool, config) => {
     const pool = projectPool.data.pool;
     if (pool.length === 0) {
       console.log(chalk.red('[e]'), 'No projects in pool.');
@@ -212,7 +211,7 @@ const actions: {
         project,
         projectPool,
         jobQueue,
-        editor,
+        config.data,
       );
       if (updatedProject !== 'deleted') {
         pool.push(updatedProject);
