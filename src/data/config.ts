@@ -13,6 +13,7 @@ import {
 } from './projectpool.js';
 import { confirm } from '@inquirer/prompts';
 import { fileURLToPath, pathToFileURL } from 'url';
+import pkg from '../../package.json' with { type: 'json' };
 
 // Types / Schemas
 
@@ -27,6 +28,7 @@ type JsonSchemaName = (typeof jsonSchemaNames)[number];
 
 const NonemptyString = z.string().nonempty();
 // prettier-ignore
+// !!! NOTE !!! Whenever you change this schema, PLEASE update package.json version (so JSON schemas will get updated automatically)
 export const ConfigSchema = z.object({
   jobqueue: NonemptyString.optional().meta({title: "Jobqueue path", description: "Path to jobqueue.json."}),
   projectpool: NonemptyString.optional().meta({title: "Projectpool path", description: "Path to projectpool.json."}),
@@ -73,6 +75,38 @@ const updateNestedObject = async <T extends { [key: string]: any }>( // eslint-d
   }
 };
 
+// JSON schema methods
+
+const getJsonSchemaId = (schemaFileUrl): string =>
+  path.posix.join(pkg.version, path.basename(fileURLToPath(schemaFileUrl)));
+
+const versionFromJsonSchemaId = (id): string => path.dirname(id);
+
+const updateJsonSchema = async (
+  schemaSchema: z.ZodType,
+  schemaFileUrl: string,
+): Promise<void> => {
+  const schemaPath = fileURLToPath(schemaFileUrl);
+  const schemaDir = path.dirname(schemaPath);
+  if (!existsSync(schemaDir)) await fs.mkdir(schemaDir, { recursive: true });
+  return await fs.writeFile(
+    schemaPath,
+    JSON.stringify(
+      {
+        $id: getJsonSchemaId(schemaFileUrl),
+        ...schemaSchema.toJSONSchema({
+          io: 'input',
+          unrepresentable: 'throw',
+        }),
+      },
+      undefined,
+      '  ',
+    ),
+  );
+};
+
+// Config methods
+
 const defaultData: { jobqueue: JobQueue; projectpool: ProjectPool } = {
   jobqueue: { queue: [] },
   projectpool: { pool: [] },
@@ -112,23 +146,16 @@ const createConfig = async (
   }
 
   // schemas
-  await fs.mkdir(config.schemas);
+  if (!existsSync(config.schemas)) await fs.mkdir(config.schemas);
   for (const schema of jsonSchemaNames) {
     if (!existsSync(decodedConfig.schemas[schema])) {
       console.log(
         chalk.blue('[i]'),
-        `Creating ${path.join('{config}', path.relative(configDir, decodedConfig.schemas[schema]))}...`,
+        `Creating ${path.join('{config}', path.relative(configDir, fileURLToPath(decodedConfig.schemas[schema])))}...`,
       );
-      await fs.writeFile(
+      await updateJsonSchema(
+        jsonSchemas[schema],
         decodedConfig.schemas[schema],
-        JSON.stringify(
-          jsonSchemas[schema].toJSONSchema({
-            io: 'input',
-            unrepresentable: 'throw',
-          }),
-          undefined,
-          '  ',
-        ),
       );
     }
   }
@@ -136,18 +163,78 @@ const createConfig = async (
   return { encoded: config, decoded: decodedConfig };
 };
 
-const checkConfig = (config: Config, configPath: string): void => {
+const checkConfig = async (
+  config: Config,
+  configPath: string,
+): Promise<void> => {
   try {
-    [
-      config.jobqueue,
-      config.projectpool,
-      ...Object.values(config.schemas),
-    ].forEach((file) => {
-      if (!existsSync(/^file:\/\/\//.test(file) ? fileURLToPath(file) : file))
-        throw new Error(`File '${file}' in config does not exist`);
-    });
+    // Make sure jobqueue and project pool exist and create if not
+    for (const key of ['jobqueue', 'projectpool']) {
+      if (!existsSync(config[key]))
+        if (
+          ['jobqueue', 'projectpool'].includes(key) &&
+          (await confirm({
+            message: `File at config.${key} does not exist. Want to create it?`,
+          }))
+        )
+          await fs.writeFile(
+            config[key],
+            JSON.stringify(
+              {
+                $schema: config.schemas[key],
+                ...defaultData[key],
+              },
+              undefined,
+              '  ',
+            ),
+          );
+        else throw new Error(`File '${config[key]}' in config does not exist`);
+    }
+
+    // Make sure each schema exists and is the correct version
+    const outdatedSchemas: JsonSchemaName[] = [];
+    for (const schema of Object.keys(
+      config.schemas,
+    ) as (keyof typeof config.schemas)[]) {
+      const schemaPath = fileURLToPath(config.schemas[schema]);
+      if (existsSync(schemaPath)) {
+        const schemaJson = JSON.parse(
+          await fs.readFile(schemaPath, {
+            encoding: 'utf8',
+          }),
+        );
+
+        const version =
+          schemaJson.$id && versionFromJsonSchemaId(schemaJson.$id);
+        if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+          console.log(
+            chalk.yellow('[w]'),
+            `${path.join('{config}', path.basename(config.schemas[schema]))} is malformed. Overwriting...`,
+          );
+          await updateJsonSchema(jsonSchemas[schema], config.schemas[schema]);
+        } else if (version !== pkg.version) {
+          outdatedSchemas.push(schema);
+        }
+      } else {
+        console.log(
+          chalk.blue('[i]'),
+          `${path.join('{config}', path.basename(config.schemas[schema]))} does not exist. Creating...`,
+        );
+        await updateJsonSchema(jsonSchemas[schema], config.schemas[schema]);
+      }
+    }
+    if (outdatedSchemas.length > 0) {
+      const shouldUpdate = await confirm({
+        message:
+          'You are using at least one outdated JSON schema. Want to regenerate them?',
+      });
+      if (shouldUpdate)
+        outdatedSchemas.forEach((schema) =>
+          updateJsonSchema(jsonSchemas[schema], config.schemas[schema]),
+        );
+    }
   } catch (error) {
-    throw new Error(`Config at '${configPath}'.\n${error}`);
+    throw new Error(`${error}\nFix config at '${configPath}'.`);
   }
 };
 
@@ -157,7 +244,7 @@ export const getConfig = async (
   const configDir = path.resolve(envPaths('job-queue').config);
   const configPath = path.resolve(configDir, 'config.json');
 
-  await fs.mkdir(configDir, { recursive: true });
+  if (!existsSync(configDir)) await fs.mkdir(configDir, { recursive: true });
 
   if (!existsSync(configPath)) {
     console.log(chalk.blue('[i]'), `Creating config at '${configPath}'...`);
@@ -179,7 +266,7 @@ export const getConfig = async (
   }
 
   const configData = await makeJsonData(configPath, ConfigSchema);
-  checkConfig(configData.data, configPath);
+  await checkConfig(configData.data, configPath);
 
   await updateNestedObject(
     configData.data,

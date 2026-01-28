@@ -1,4 +1,3 @@
 {
-  "$schema": "https://raw.githubusercontent.com/uss-stargazer/jobqueue/refs/heads/main/schemas/jobqueue.schema.json",
   "queue": []
 }
