@@ -40,7 +40,7 @@ export const updateJob = async (
     {
       editor: config.editor,
       errorHead: 'Rejected job',
-      tmpPrefix: 'jobqueue-job',
+      file: { type: 'tmp', prefix: 'jobqueue-job' },
       tooltips: [
         'Opening job JSON in editor for editing.',
         'Delete file contents to finish the job.',

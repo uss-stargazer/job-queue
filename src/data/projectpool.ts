@@ -49,7 +49,7 @@ export const updateProject = async (
     {
       editor: config.editor,
       errorHead: 'Rejected project',
-      tmpPrefix: 'jobqueue-project',
+      file: { type: 'tmp', prefix: 'jobqueue-project' },
       tooltips: [
         'Opening project JSON in editor for editing.',
         'Delete file contents to delete the project.',

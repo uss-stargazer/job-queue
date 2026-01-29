@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import * as z from 'zod';
 import { confirm } from '@inquirer/prompts';
 import { editInteractively } from 'edit-like-git';
+import fs from 'fs/promises';
 
 export class AbortError extends Error {
   constructor(message) {
@@ -31,26 +32,31 @@ export const haveUserUpdateData = async <
 >(
   schema: S,
   data: D extends 'in' ? z.input<S> : z.output<S>,
-  options: Partial<{
+  options?: Partial<{
     editor: string;
     errorHead: string;
-    tmpPrefix: string;
+    file: { type: 'tmp'; prefix?: string } | { type: 'abs'; path: string };
     tooltips: string[];
     jsonSchemaUrl: string;
-    filePath: string;
   }>,
-  checks: Partial<{
+  checks?: Partial<{
     preparse: CheckFunction<string>;
     postparse: CheckFunction<z.infer<S>>;
   }>,
 ): Promise<z.infer<S> | undefined> => {
-  const tmpFile = await tmp.file({
-    prefix: options.tmpPrefix,
-    postfix: '.json',
-  });
+  const file: { path: string; cleanup?: () => Promise<void> } =
+    options?.file?.type && options.file.type === 'abs'
+      ? { path: options.file.path }
+      : await tmp.file({
+          prefix:
+            options?.file?.type === 'tmp' ? options.file.prefix : undefined,
+          postfix: '.json',
+        });
+
+  const originalContents = await fs.readFile(file.path, { encoding: 'utf8' });
   let contents: string | void = JSON.stringify(
-    schema instanceof z.ZodObject && options.jsonSchemaUrl
-      ? { $schema: options.jsonSchemaUrl, ...(data as object) }
+    schema instanceof z.ZodObject && options?.jsonSchemaUrl
+      ? { $schema: options?.jsonSchemaUrl, ...(data as object) }
       : data,
     undefined,
     '  ',
@@ -65,10 +71,10 @@ export const haveUserUpdateData = async <
     const controller = new AbortController();
     const signal = controller.signal;
     const editorPromise = editInteractively(
-      tmpFile.path,
+      file.path,
       contents,
-      options.editor,
-      options.tooltips,
+      options?.editor,
+      options?.tooltips,
     );
     await new Promise((resolve) => setTimeout(resolve, 1000)); // Hacky hack to print abort after edit tooltips
     const abortPromise = confirm(
@@ -82,7 +88,12 @@ export const haveUserUpdateData = async <
       })
       .then(async (shouldAbort) => {
         if (shouldAbort) {
-          await tmpFile.cleanup();
+          if (file.cleanup) await file.cleanup();
+          else
+            await fs.writeFile(file.path, originalContents, {
+              encoding: 'utf8',
+            });
+
           throw new AbortError('User aborted action');
         }
       });
@@ -92,14 +103,14 @@ export const haveUserUpdateData = async <
 
     // Load back editor contents and validate them
 
-    if (checks.preparse) {
-      const preparseError = checks.preparse(contents);
+    if (checks?.preparse) {
+      const preparseError = checks?.preparse(contents);
       if (preparseError === 'pass') {
         updatedResult = undefined;
         break;
       } else if (typeof preparseError === 'object') {
         console.log(
-          chalk.red(`${options.errorHead}:`),
+          chalk.red(`${options?.errorHead}:`),
           preparseError.errMessage,
         );
         continue;
@@ -109,11 +120,11 @@ export const haveUserUpdateData = async <
     updatedResult = schema.safeParse(JSON.parse(contents));
 
     if (updatedResult.success) {
-      if (checks.postparse) {
-        const postparseError = checks.postparse(updatedResult.data);
+      if (checks?.postparse) {
+        const postparseError = checks?.postparse(updatedResult.data);
         if (typeof postparseError === 'object') {
           console.log(
-            chalk.red(`${options.errorHead}:`),
+            chalk.red(`${options?.errorHead}:`),
             postparseError.errMessage,
           );
           continue;
@@ -123,11 +134,11 @@ export const haveUserUpdateData = async <
       break;
     }
     console.log(
-      chalk.red(`${options.errorHead}:`),
-      `JSON invalid: ${updatedResult.error.message}`,
+      chalk.red(`${options?.errorHead}:`),
+      `JSON invalid:\n${z.prettifyError(updatedResult.error)}`,
     );
   }
-  await tmpFile.cleanup();
+  if (file.cleanup) await file.cleanup();
 
   return (
     updatedResult &&
@@ -135,7 +146,7 @@ export const haveUserUpdateData = async <
       ? updatedResult.data
       : ((): never => {
           throw new Error(
-            `${options.errorHead}: JSON invalid: ${updatedResult.error.message}`,
+            `${options?.errorHead}: JSON invalid: ${updatedResult.error.message}`,
           );
         })())
   );
