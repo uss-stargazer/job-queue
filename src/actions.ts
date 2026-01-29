@@ -1,11 +1,10 @@
 import chalk from 'chalk';
 import { confirm, search } from '@inquirer/prompts';
 import sortableCheckbox from './utils/sortableCheckbox.js';
-import { Project, ProjectPool, updateProject } from './data/projectpool.js';
-import { Job, JobQueue, updateJob } from './data/jobqueue.js';
-import { JsonData } from './utils/data.js';
 import { AbortError, reorder } from './utils/index.js';
-import { Config } from './data/config.js';
+import { DataInJsonDatas } from './data/index.js';
+import { Job, updateJob } from './data/jobqueue.js';
+import { Project, updateProject } from './data/projectpool.js';
 
 export const actionNames = [
   'dequeueJob',
@@ -24,14 +23,10 @@ export const actionsDependentOnProjects: ActionName[] = [
 ];
 
 const actions: {
-  [K in ActionName]: (
-    jobQueue: JsonData<JobQueue>,
-    projectPool: JsonData<ProjectPool>,
-    config: JsonData<Config>,
-  ) => Promise<void>;
+  [K in ActionName]: (data: DataInJsonDatas) => Promise<void>;
 } = {
-  dequeueJob: async (jobQueue, projectPool, config) => {
-    const queue = jobQueue.data.queue;
+  dequeueJob: async ({ jobqueue, projectpool, config }) => {
+    const queue = jobqueue.data.queue;
     const job = queue.shift();
 
     if (job === undefined) {
@@ -40,7 +35,7 @@ const actions: {
     }
 
     try {
-      const updatedJob = await updateJob(job, projectPool, config.data);
+      const updatedJob = await updateJob(job, projectpool, config.data);
       if (updatedJob !== 'deleted') {
         queue.unshift(updatedJob);
         console.log(chalk.blue('[i]'), 'Job edited');
@@ -48,7 +43,7 @@ const actions: {
         console.log(chalk.green('✔'), 'Job completed and deleted');
       }
 
-      await jobQueue.sync();
+      await jobqueue.sync();
     } catch (error) {
       if (!(error instanceof AbortError)) throw error;
 
@@ -57,13 +52,13 @@ const actions: {
     }
   },
 
-  enqueueJob: async (jobQueue, projectPool, config) => {
-    if (projectPool.data.pool.length === 0) {
+  enqueueJob: async ({ jobqueue, projectpool, config }) => {
+    if (projectpool.data.pool.length === 0) {
       console.log(chalk.red('[e]'), 'No projects in pool to make job for.');
       return;
     }
 
-    const queue = jobQueue.data.queue;
+    const queue = jobqueue.data.queue;
     const placeholderJob: Job = {
       name: '[placeholder]',
       objectivies: [
@@ -75,20 +70,20 @@ const actions: {
     };
 
     try {
-      const job = await updateJob(placeholderJob, projectPool, config.data);
+      const job = await updateJob(placeholderJob, projectpool, config.data);
       if (job === 'deleted') throw new AbortError('Enqueue aborted');
 
       queue.push(job);
       console.log(chalk.green('✔'), 'Job enqueued');
-      await jobQueue.sync();
+      await jobqueue.sync();
     } catch (error) {
       if (!(error instanceof AbortError)) throw error;
       console.log(chalk.red('[e]'), error.message);
     }
   },
 
-  editQueue: async (jobQueue, projectPool, config) => {
-    const queue = jobQueue.data.queue;
+  editQueue: async ({ jobqueue, projectpool, config }) => {
+    const queue = jobqueue.data.queue;
     if (queue.length === 0) {
       console.log(chalk.red('[e]'), 'No jobs in queue.');
       return;
@@ -124,7 +119,7 @@ const actions: {
 
         try {
           const job = queue[jobIdx];
-          const updatedJob = await updateJob(job, projectPool, config.data);
+          const updatedJob = await updateJob(job, projectpool, config.data);
           if (updatedJob === 'deleted') {
             queue.splice(jobIdx, 1);
             console.log(chalk.green('✔'), `Job '${job.name}' deleted.`);
@@ -133,7 +128,7 @@ const actions: {
             console.log(chalk.green('✔'), `Job '${updatedJob.name}' edited.`);
           }
 
-          await jobQueue.sync();
+          await jobqueue.sync();
         } catch (error) {
           if (!(error instanceof AbortError)) throw error;
 
@@ -148,8 +143,8 @@ const actions: {
     }
   },
 
-  addProject: async (jobQueue, projectPool, config) => {
-    const pool = projectPool.data.pool;
+  addProject: async ({ jobqueue, projectpool, config }) => {
+    const pool = projectpool.data.pool;
     const placeholderProject: Project = {
       name: '[some-project]',
       description: 'This is a placeholder project.',
@@ -160,15 +155,15 @@ const actions: {
     try {
       const project = await updateProject(
         placeholderProject,
-        projectPool,
-        jobQueue,
+        projectpool,
+        jobqueue,
         config.data,
       );
       if (project === 'deleted') throw new AbortError('Add project aborted');
 
       pool.push(project);
       console.log(chalk.green('✔'), 'Added new project');
-      await projectPool.sync();
+      await projectpool.sync();
     } catch (error) {
       if (!(error instanceof AbortError)) throw error;
 
@@ -176,8 +171,8 @@ const actions: {
     }
   },
 
-  editProject: async (jobQueue, projectPool, config) => {
-    const pool = projectPool.data.pool;
+  editProject: async ({ jobqueue, projectpool, config }) => {
+    const pool = projectpool.data.pool;
     if (pool.length === 0) {
       console.log(chalk.red('[e]'), 'No projects in pool.');
       return;
@@ -209,8 +204,8 @@ const actions: {
     try {
       const updatedProject = await updateProject(
         project,
-        projectPool,
-        jobQueue,
+        projectpool,
+        jobqueue,
         config.data,
       );
       if (updatedProject !== 'deleted') {
@@ -220,7 +215,7 @@ const actions: {
         console.log(chalk.green('✔'), 'Project deleted');
       }
 
-      await projectPool.sync();
+      await projectpool.sync();
     } catch (error) {
       if (error instanceof AbortError) throw error;
 

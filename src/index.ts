@@ -8,9 +8,10 @@ import actions, {
   actionsDependentOnJobs,
   actionsDependentOnProjects,
 } from './actions.js';
+import { ConfigIn, getConfig } from './data/config.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
-import { ConfigIn, getConfig } from './data/config.js';
+import { DataInJsonDatas } from './data/index.js';
 
 export default async function main(
   overrideConfig: Partial<ConfigIn>,
@@ -21,8 +22,11 @@ export default async function main(
   );
 
   const config = await getConfig(overrideConfig);
-  const jobQueue = await getJobQueue(config.data.jobqueue);
-  const projectPool = await getProjectPool(config.data.projectpool);
+  const data: DataInJsonDatas = {
+    config: config,
+    jobqueue: await getJobQueue(config.data.jobqueue),
+    projectpool: await getProjectPool(config.data.projectpool),
+  };
   console.log(); // New separation line
 
   try {
@@ -32,7 +36,7 @@ export default async function main(
         choices: actionNames.map((action) => {
           if (
             actionsDependentOnJobs.includes(action) &&
-            jobQueue.data.queue.length === 0
+            data.jobqueue.data.queue.length === 0
           )
             return {
               name: action,
@@ -41,7 +45,7 @@ export default async function main(
             };
           else if (
             actionsDependentOnProjects.includes(action) &&
-            projectPool.data.pool.length === 0
+            data.projectpool.data.pool.length === 0
           )
             return {
               name: action,
@@ -52,7 +56,7 @@ export default async function main(
         }),
       });
 
-      await actions[action](jobQueue, projectPool, config);
+      await actions[action](data);
 
       console.log(); // New line for action seperation
     }
