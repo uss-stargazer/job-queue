@@ -3,7 +3,7 @@ import envPaths from 'env-paths';
 import path from 'path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
-import { JsonData, makeJsonData } from './utils.js';
+import { JsonData, makeJsonData } from '../utils/data.js';
 import chalk from 'chalk';
 import { JobQueue, JobQueueSchema, JobSchema } from './jobqueue.js';
 import {

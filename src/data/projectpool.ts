@@ -1,6 +1,6 @@
 import { confirm } from '@inquirer/prompts';
 import * as z from 'zod';
-import { haveUserUpdateData, JsonData, makeJsonData } from './utils.js';
+import { haveUserUpdateData, JsonData, makeJsonData } from '../utils/data.js';
 import { JobQueue } from './jobqueue.js';
 import { Config } from './config.js';
 

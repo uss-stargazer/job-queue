@@ -3,7 +3,7 @@ import { confirm, search } from '@inquirer/prompts';
 import sortableCheckbox from './utils/sortableCheckbox.js';
 import { Project, ProjectPool, updateProject } from './data/projectpool.js';
 import { Job, JobQueue, updateJob } from './data/jobqueue.js';
-import { JsonData } from './data/utils.js';
+import { JsonData } from './utils/data.js';
 import { AbortError, reorder } from './utils/index.js';
 import { Config } from './data/config.js';
 

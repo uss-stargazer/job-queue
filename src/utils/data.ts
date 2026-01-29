@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import chalk from 'chalk';
 import * as z from 'zod';
 import { confirm } from '@inquirer/prompts';
-import { AbortError } from '../utils/index.js';
+import { AbortError } from './index.js';
 import { editInteractively } from 'edit-like-git';
 
 export type JsonData<T> = {

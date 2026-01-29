@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { haveUserUpdateData, JsonData, makeJsonData } from './utils.js';
+import { haveUserUpdateData, JsonData, makeJsonData } from '../utils/data.js';
 import { checkProjectName, ProjectPool } from './projectpool.js';
 import { Config } from './config.js';
 
