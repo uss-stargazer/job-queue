@@ -10,22 +10,23 @@ export const makeJsonData = async <S extends z.ZodType>(
   jsonPath: string,
   schema: S,
 ): Promise<JsonData<z.infer<S>>> => {
-  let json;
-  try {
-    json = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
-  } catch (error) {
-    throw new Error(`Couldn't open '${jsonPath}': ${error}`);
-  }
-  const schemaUrl = json['$schema'];
+  const json = JSON.parse(
+    await fs.readFile(jsonPath, 'utf8').catch((error) => {
+      throw new Error(`Couldn't open '${jsonPath}': ${error}`);
+    }),
+  );
+
+  const schemaUrl = json['$schema']; // save $schema (if it exists) for writing on sync()
   const parsed = schema.safeParse(json);
   if (!parsed.success)
     throw new Error(
-      `JSON at '${jsonPath}' does not match schema: ${parsed.error.message}`,
+      `JSON at '${jsonPath}' does not match schema: ${z.treeifyError(parsed.error)}`,
     );
-  return {
+
+  const jsonData: JsonData<z.infer<S>> = {
     data: parsed.data,
-    sync: async (): Promise<void> => {
-      const encoded = schema.encode(parsed.data);
+    async sync() {
+      const encoded = schema.encode(jsonData.data);
       return fs.writeFile(
         jsonPath,
         JSON.stringify(
@@ -42,4 +43,6 @@ export const makeJsonData = async <S extends z.ZodType>(
       );
     },
   };
+
+  return jsonData;
 };
