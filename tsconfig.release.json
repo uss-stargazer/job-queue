@@ -3,5 +3,6 @@
   "compilerOptions": {
     "sourceMap": false,
     "removeComments": true
-  }
+  },
+  "exclude": ["**/*.test.ts"]
 }

@@ -23,7 +23,8 @@
     "build:release": "npm run clean && tsc -p tsconfig.release.json",
     "lint": "eslint .",
     "prettier": "prettier \"{src,__{tests}__}/**/*.{ts,mts}\" --config .prettierrc --write",
-    "prettier:check": "prettier \"{src,__{tests}__}/**/*.{ts,mts}\" --config .prettierrc --check"
+    "prettier:check": "prettier \"{src,__{tests}__}/**/*.{ts,mts}\" --config .prettierrc --check",
+    "test": "cross-env NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.2.0",
@@ -42,14 +43,19 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/eslint__js": "^8.42.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.6",
     "@typescript-eslint/parser": "^8.52.0",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.0.0",
+    "jest": "^30.2.0",
     "prettier": "^3.7.4",
     "rimraf": "^6.1.2",
     "ts-api-utils": "^2.4.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.52.0"
   }
