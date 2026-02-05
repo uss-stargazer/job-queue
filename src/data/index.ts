@@ -2,7 +2,7 @@ import { JobQueueSchema } from './jobqueue.js';
 import { ProjectPoolSchema } from './projectpool.js';
 import { ConfigSchema } from './config.js';
 import * as z from 'zod';
-import { JsonData } from '../utils/data.js';
+import { JsonData } from '../utils/jsonData.js';
 
 export const dataNames = ['jobqueue', 'projectpool', 'config'] as const;
 export type DataName = (typeof dataNames)[number];
