@@ -2,8 +2,9 @@ import chalk from 'chalk';
 import clear from 'clear';
 import figlet from 'figlet';
 import { select } from '@inquirer/prompts';
-import { ExitPromptError } from '@inquirer/core';
+import { ExitPromptError, Separator } from '@inquirer/core';
 import actions, {
+  ActionName,
   actionNames,
   actionsDependentOnJobs,
   actionsDependentOnProjects,
@@ -11,7 +12,27 @@ import actions, {
 import { ConfigIn, getConfig } from './data/config.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
-import { DataInJsonDatas } from './data/index.js';
+import { DataInJsonDatas, editData } from './data/index.js';
+
+async function loadData(
+  overrideConfigDir: string,
+  overrideConfig: Partial<ConfigIn>,
+): Promise<
+  DataInJsonDatas & {
+    configPath: string;
+  }
+> {
+  const { config, path: configPath } = await getConfig(
+    overrideConfigDir,
+    overrideConfig,
+  );
+  return {
+    config,
+    configPath,
+    jobqueue: await getJobQueue(config.data.jobqueue),
+    projectpool: await getProjectPool(config.data.projectpool),
+  };
+}
 
 export default async function main(
   overrideConfigDir?: string,
@@ -22,42 +43,44 @@ export default async function main(
     chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
   );
 
-  const config = await getConfig(overrideConfigDir, overrideConfig);
-  const data: DataInJsonDatas = {
-    config: config,
-    jobqueue: await getJobQueue(config.data.jobqueue),
-    projectpool: await getProjectPool(config.data.projectpool),
-  };
+  let data = await loadData(overrideConfigDir, overrideConfig);
   console.log(); // New separation line
 
   try {
     while (true) {
-      const action = await select({
+      const action = await select<ActionName | 'editData'>({
         message: 'Select action',
-        choices: actionNames.map((action) => {
-          if (
-            actionsDependentOnJobs.includes(action) &&
-            data.jobqueue.data.queue.length === 0
-          )
-            return {
-              name: action,
-              value: action,
-              disabled: '(Empty job queue)',
-            };
-          else if (
-            actionsDependentOnProjects.includes(action) &&
-            data.projectpool.data.pool.length === 0
-          )
-            return {
-              name: action,
-              value: action,
-              disabled: '(Empty project pool)',
-            };
-          else return { name: action, value: action };
-        }),
+        choices: [
+          ...actionNames.map((action) => {
+            if (
+              actionsDependentOnJobs.includes(action) &&
+              data.jobqueue.data.queue.length === 0
+            )
+              return {
+                name: action,
+                value: action,
+                disabled: '(Empty job queue)',
+              };
+            else if (
+              actionsDependentOnProjects.includes(action) &&
+              data.projectpool.data.pool.length === 0
+            )
+              return {
+                name: action,
+                value: action,
+                disabled: '(Empty project pool)',
+              };
+            else return { name: action, value: action };
+          }),
+          new Separator(),
+          { name: 'editData', value: 'editData' },
+        ],
       });
 
-      await actions[action](data);
+      if (action === 'editData') {
+        await editData(data, data.configPath);
+        data = await loadData(overrideConfigDir, overrideConfig);
+      } else await actions[action](data);
 
       console.log(); // New line for action seperation
     }

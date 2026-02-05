@@ -1,6 +1,5 @@
 - main
     - when you delete project, delete referencing jobs
-    - action for edit jsons directly
     - full sync option
     - auto fixing config files
     - logging after editInteractively tooltips has broken output

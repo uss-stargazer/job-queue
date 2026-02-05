@@ -41,8 +41,25 @@ export const ConfigSchema = z.object({
     ) as {[K in JsonSchemaName]: string}
   ),
 });
+
 export type ConfigIn = z.input<typeof ConfigSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
+export const toInputConfig = (outputData: Config): ConfigIn => {
+  const schemaDir = Object.values(outputData.schemas).reduce(
+    (schemaDir, schemaPath) => {
+      const thisSchemaDir = path.dirname(fileURLToPath(schemaPath));
+      return schemaDir === null || schemaDir === thisSchemaDir
+        ? thisSchemaDir
+        : ((): never => {
+            throw new Error(
+              'Decoded invidual schemas are not in the same directory.',
+            );
+          })();
+    },
+    null,
+  );
+  return { ...outputData, schemas: schemaDir };
+};
 
 const jsonSchemas: { [K in JsonSchemaName]: z.ZodType } = {
   job: JobSchema,
@@ -241,7 +258,7 @@ const checkConfig = async (
 export const getConfig = async (
   overrideConfigDir?: string,
   overrideConfig?: Partial<ConfigIn>,
-): Promise<JsonData<Config>> => {
+): Promise<{ config: JsonData<Config>; path: string }> => {
   const configDir =
     overrideConfigDir ?? path.resolve(envPaths('job-queue').config);
   const configPath = path.resolve(configDir, 'config.json');
@@ -267,7 +284,11 @@ export const getConfig = async (
     );
   }
 
-  const configData = await makeJsonData(configPath, ConfigSchema);
+  const configData = await makeJsonData(
+    configPath,
+    ConfigSchema,
+    toInputConfig,
+  );
   await checkConfig(configData.data, configPath);
 
   await updateNestedObject(
@@ -275,5 +296,5 @@ export const getConfig = async (
     ConfigSchema.partial().decode(overrideConfig),
   );
 
-  return configData;
+  return { config: configData, path: configPath };
 };
