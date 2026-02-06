@@ -30,8 +30,8 @@ const NonemptyString = z.string().nonempty();
 // prettier-ignore
 // !!! NOTE !!! Whenever you change this schema, PLEASE update package.json version (so JSON schemas will get updated automatically)
 export const ConfigSchema = z.object({
-  jobqueue: NonemptyString.optional().meta({title: "Jobqueue path", description: "Path to jobqueue.json."}),
-  projectpool: NonemptyString.optional().meta({title: "Projectpool path", description: "Path to projectpool.json."}),
+  jobqueue: NonemptyString.meta({title: "Jobqueue path", description: "Path to jobqueue.json."}),
+  projectpool: NonemptyString.meta({title: "Projectpool path", description: "Path to projectpool.json."}),
   editor: NonemptyString.optional().meta({title: "Editor command", description: "Command to run editor. Will be run like `<editor> /some/data.json` so make sure it waits."}),
 
   // schemas stored as path to schemas dir, but expanded on parse
