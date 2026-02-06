@@ -6,6 +6,9 @@ export type JsonData<T> = {
   sync: () => Promise<void>;
 };
 
+/**
+ * @throws SyntaxError (file doesn't contain JSON), ZodError (couldn't parse), Error (generic; e.g. couldn't open file)
+ */
 export const makeJsonData = async <S extends z.ZodType>(
   jsonPath: string,
   schema: S,
@@ -24,14 +27,9 @@ export const makeJsonData = async <S extends z.ZodType>(
   );
   const schemaUrl = json['$schema']; // save $schema (if it exists) for writing on sync()
 
-  const parsed = schema.safeParse(json);
-  if (!parsed.success)
-    throw new Error(
-      `JSON at '${jsonPath}' does not match schema: ${z.prettifyError(parsed.error)}`,
-    );
-
+  const data = schema.parse(json);
   const jsonData: JsonData<z.infer<S>> = {
-    data: parsed.data,
+    data,
     sync() {
       const encoded = toInput ? toInput(jsonData.data) : jsonData.data;
       return fs.writeFile(

@@ -265,7 +265,34 @@ export const getConfig = async (
 
   if (!existsSync(configDir)) await fs.mkdir(configDir, { recursive: true });
 
-  if (!existsSync(configPath)) {
+  // Get config data
+
+  let configData: JsonData<Config> | undefined = undefined;
+
+  if (existsSync(configPath))
+    configData = await makeJsonData(
+      configPath,
+      ConfigSchema,
+      toInputConfig,
+    ).catch((error) => {
+      if (error instanceof SyntaxError) {
+        console.log(chalk.red('[e]'), `Invalid JSON at '${configPath}'`);
+      } else if (error instanceof z.ZodError) {
+        console.log(
+          chalk.red('[e]'),
+          `JSON at '${configPath}' does not match schema:\n${z.prettifyError(error)}`,
+        );
+      } else throw error;
+
+      return confirm({ message: 'Want to overwrite with default?' }).then(
+        (shouldContinue) => {
+          if (!shouldContinue) throw error;
+          else return undefined;
+        },
+      );
+    });
+
+  if (!configData) {
     console.log(chalk.blue('[i]'), `Creating config at '${configPath}'...`);
     const { encoded: config, decoded: decodedConfig } = await createConfig(
       configDir,
@@ -282,19 +309,15 @@ export const getConfig = async (
         '  ',
       ),
     );
+    configData = await makeJsonData(configPath, ConfigSchema, toInputConfig);
   }
 
-  const configData = await makeJsonData(
-    configPath,
-    ConfigSchema,
-    toInputConfig,
-  );
-  await checkConfig(configData.data, configPath);
-
+  // Validate and apply config data contents
   await updateNestedObject(
     configData.data,
     ConfigSchema.partial().decode(overrideConfig),
   );
+  await checkConfig(configData.data, configPath);
 
   return { config: configData, path: configPath };
 };

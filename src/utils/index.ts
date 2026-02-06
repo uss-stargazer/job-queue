@@ -62,8 +62,7 @@ export const haveUserUpdateData = async <
     '  ',
   );
 
-  let updatedResult: ReturnType<typeof schema.safeParse> | undefined =
-    undefined;
+  let updatedData: z.infer<S> | undefined = undefined;
 
   while (true) {
     // Open temp file in editor while also allowing user to abort
@@ -106,7 +105,7 @@ export const haveUserUpdateData = async <
     if (checks?.preparse) {
       const preparseError = checks?.preparse(contents);
       if (preparseError === 'pass') {
-        updatedResult = undefined;
+        updatedData = undefined;
         break;
       } else if (typeof preparseError === 'object') {
         console.log(
@@ -117,11 +116,11 @@ export const haveUserUpdateData = async <
       }
     }
 
-    updatedResult = schema.safeParse(JSON.parse(contents));
+    try {
+      updatedData = schema.parse(JSON.parse(contents));
 
-    if (updatedResult.success) {
       if (checks?.postparse) {
-        const postparseError = checks?.postparse(updatedResult.data);
+        const postparseError = checks?.postparse(updatedData);
         if (typeof postparseError === 'object') {
           console.log(
             chalk.red(`${options?.errorHead}:`),
@@ -130,24 +129,22 @@ export const haveUserUpdateData = async <
           continue;
         }
       }
-
       break;
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        console.log(
+          chalk.red(`${options?.errorHead}:`),
+          `Recieved invalid JSON: ${error.message}`,
+        );
+      else if (error instanceof z.ZodError)
+        console.log(
+          chalk.red(`${options?.errorHead}:`),
+          `JSON does not match schema:\n${z.prettifyError(error)}`,
+        );
+      else throw error;
     }
-    console.log(
-      chalk.red(`${options?.errorHead}:`),
-      `JSON invalid:\n${z.prettifyError(updatedResult.error)}`,
-    );
   }
-  if (file.cleanup) await file.cleanup();
 
-  return (
-    updatedResult &&
-    (updatedResult.success
-      ? updatedResult.data
-      : ((): never => {
-          throw new Error(
-            `${options?.errorHead}: JSON invalid: ${updatedResult.error.message}`,
-          );
-        })())
-  );
+  if (file.cleanup) await file.cleanup();
+  return updatedData;
 };
