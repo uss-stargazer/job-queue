@@ -1,13 +1,19 @@
 {
-  "name": "job-queue",
-  "version": "0.0.0",
+  "name": "@uss-stargazer/job-queue",
+  "version": "0.0.1",
   "description": "A CLI app to keep track of jobs/tasks built around a couple of JSON files.",
-  "author": "USS Stargazer",
+  "author": "uss-stargazer",
   "license": "Apache-2.0",
-  "bin": {
-    "jobq": "./index.js"
+  "repository": {  
+    "type": "git",
+    "url": "https://github.com/uss-stargazer/jobqueue.git"
   },
   "type": "module",
+  "bin": {
+    "job-queue": "./index.js",
+    "jobq": "./index.js"
+  },
+  "files": ["index.js", "dist/", "!TODO"],
   "scripts": {
     "start": "node ./index.js",
     "clean": "rimraf coverage dist tmp",

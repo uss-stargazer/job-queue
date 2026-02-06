@@ -6,6 +6,22 @@ The goal is to increase productivity.
 - Small jobs that do one thing at a time are more manageable, and make Git commits easier
 - Documenting todo in manageable fashion decreases liklihood of abandoning a project
 
+## Install
+
+Can be installed system-wide if you have Node/NPM installed:
+
+```
+npm install --global @uss-stargazer/job-queue
+```
+
+Then, you can use like:
+
+```
+job-queue --help
+# or 
+jobq --help
+```
+
 ## Workflow
 
 - _\[Daemon\]_ Spontaneous, not fleshed out ideas get immediately added to the project pool as "inactive".

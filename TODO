@@ -1,0 +1,18 @@
+- refactor: make the main repo be the js cli
+    - cli name is jobq
+    - how to make it so that all ya got a do is install it anad then get the cli (how does tsc do it? or vite?)
+        - index.js with shebang and commander in root
+- have it sync with github gists with octokit
+    - have it write to a temp file (that it looks for on init, to see if recover)
+    - then push to gist when exit
+- somehow it needs to store data as a npm cli (specifically the gist and pat)
+    - How to do this?
+    - some jobq specific settings like completed save length can be stored in the queue directly
+- i want it so the user just has to install node, run npm install --global jobqueue, and link a gist
+
+- main
+    - when you delete project, delete referencing jobs
+    - action for edit jsons directly
+    - full sync option
+    - auto fixing config files
+    - logging after editInteractively tooltips has broken output
