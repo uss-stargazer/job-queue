@@ -14,14 +14,15 @@ import { getProjectPool } from './data/projectpool.js';
 import { DataInJsonDatas } from './data/index.js';
 
 export default async function main(
-  overrideConfig: Partial<ConfigIn>,
+  overrideConfigDir?: string,
+  overrideConfig?: Partial<ConfigIn>,
 ): Promise<void> {
   clear();
   console.log(
     chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
   );
 
-  const config = await getConfig(overrideConfig);
+  const config = await getConfig(overrideConfigDir, overrideConfig);
   const data: DataInJsonDatas = {
     config: config,
     jobqueue: await getJobQueue(config.data.jobqueue),

@@ -13,23 +13,29 @@ program
   )
   .version('0.0.0')
   .option(
+    '-c, --config <path>',
+    'path to directory containing config.json (uses new system app dir by default)',
+  )
+  .option(
     '-j, --jobqueue <path>',
-    'path to jobqueue.json (optional, fallbacks to config)',
+    'path to jobqueue.json (uses config by default)',
   )
   .option(
     '-p, --projectpool <path>',
-    'path to projectpool.json (optional, fallbacks to config)',
+    'path to projectpool.json (uses config by default)',
   )
   .option(
     '-e, --editor <editor>',
-    'name of editor to use (optional, fallbacks to config)',
+    'name of editor to use (uses config by default or git editor, if installed)',
   )
   .action(async (options) => {
-    ['jobqueue', 'projectpool', 'editor'].forEach((key) => {
+    const configDir = options.config;
+    delete options.config;
+    [('jobqueue', 'projectpool', 'editor')].forEach((key) => {
       if (!options[key] || options[key].length === 0) delete options[key];
     });
 
-    await main({ ...options })
+    await main(configDir, { ...options })
       .then(() => {
         console.log(chalk.cyanBright('🖖 Live long and prosper...'));
         process.exit();

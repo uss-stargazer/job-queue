@@ -114,7 +114,7 @@ const defaultData: { jobqueue: JobQueue; projectpool: ProjectPool } = {
 
 const createConfig = async (
   configDir: string,
-  override: Partial<ConfigIn>,
+  override?: Partial<ConfigIn>,
 ): Promise<{ encoded: ConfigIn; decoded: Config }> => {
   const config: ConfigIn = {
     jobqueue: path.resolve(configDir, 'jobqueue.json'),
@@ -239,9 +239,11 @@ const checkConfig = async (
 };
 
 export const getConfig = async (
-  overrideConfig: Partial<ConfigIn>,
+  overrideConfigDir?: string,
+  overrideConfig?: Partial<ConfigIn>,
 ): Promise<JsonData<Config>> => {
-  const configDir = path.resolve(envPaths('job-queue').config);
+  const configDir =
+    overrideConfigDir ?? path.resolve(envPaths('job-queue').config);
   const configPath = path.resolve(configDir, 'config.json');
 
   if (!existsSync(configDir)) await fs.mkdir(configDir, { recursive: true });
