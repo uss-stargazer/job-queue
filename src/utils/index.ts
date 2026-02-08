@@ -5,6 +5,13 @@ import { confirm } from '@inquirer/prompts';
 import { editInteractively } from 'edit-like-git';
 import fs from 'fs/promises';
 
+export type IsAsymmetricZod<S extends z.ZodType> =
+  (<G>() => G extends z.input<S> ? 1 : 2) extends <G>() => G extends z.output<S>
+    ? 1
+    : 2
+    ? false
+    : true;
+
 export class AbortError extends Error {
   constructor(message) {
     super(message);
