@@ -4,9 +4,10 @@ import { ConfigSchema, toInputConfig } from './config.js';
 import * as z from 'zod';
 import { select } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
-import { AbortError, haveUserUpdateData } from '../utils/index.js';
+import { AbortError } from '../utils/index.js';
 import chalk from 'chalk';
 import { JsonData } from '../utils/jsonData.js';
+import { haveUserUpdateData } from '../utils/promptUser.js';
 
 export const dataNames = ['jobqueue', 'projectpool', 'config'] as const;
 export type DataName = (typeof dataNames)[number];
