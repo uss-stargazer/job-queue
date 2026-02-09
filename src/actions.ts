@@ -217,7 +217,7 @@ const actions: {
 
       await projectpool.sync();
     } catch (error) {
-      if (error instanceof AbortError) throw error;
+      if (!(error instanceof AbortError)) throw error;
 
       console.log(chalk.red('[e]'), error.message);
       pool.push(project);
