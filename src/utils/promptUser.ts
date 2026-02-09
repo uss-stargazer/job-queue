@@ -4,7 +4,10 @@ import chalk from 'chalk';
 import { confirm } from '@inquirer/prompts';
 import { editInteractively } from 'edit-like-git';
 import fs from 'fs/promises';
-import { AbortError, clearNLines } from './index.js';
+import { AbortError, clearNLines, IsAsymmetricZod } from './index.js';
+import { JsonData, makeJsonData } from './jsonData.js';
+import { existsSync } from 'fs';
+import path from 'path';
 
 type CheckFunction<T> = (
   input: T,
@@ -128,3 +131,97 @@ export const haveUserUpdateData = async <
   if (file.cleanup) await file.cleanup();
   return updatedData;
 };
+
+/**
+ * Tries to get data following a Zod `schema` from the `expectedPath` while being nice to the user.
+ * Otherwise, call `recreateData` and write JSON to `expectedPath` and then try to parse the file
+ * again into JsonData.
+ */
+export async function getDataTargetNicely<S extends z.ZodType>(
+  schema: S,
+  target: {
+    name: string;
+    expectedPath: string;
+    jsonSchemaUrl?: string;
+  },
+  recreateData: () => Promise<{
+    encoded: z.input<S>;
+    newJsonPath?: string;
+    newJsonSchemaUrl?: string;
+  }>,
+  autoCreateFiles: boolean = false,
+  ...conversionArg: IsAsymmetricZod<S> extends true
+    ? [toInput: (decoded: z.output<S>) => z.input<S>]
+    : []
+): Promise<{ data: JsonData<z.infer<S>>; hadToCreate: boolean }> {
+  let jsonData: JsonData<z.infer<S>> | undefined = undefined;
+  let hadToCreate: boolean = false;
+
+  try {
+    if (!existsSync(target.expectedPath))
+      throw new AbortError( // Hacky hack; just using AbortError so I can check for it during catch
+        `File '${target.expectedPath}' for ${target.name} does not exist`,
+      );
+
+    jsonData = await makeJsonData(
+      target.expectedPath,
+      schema,
+      target.jsonSchemaUrl,
+      ...conversionArg,
+    );
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      console.log(chalk.red('[e]'), `Invalid JSON at '${target.expectedPath}'`);
+    } else if (error instanceof z.ZodError) {
+      console.log(
+        chalk.red('[e]'),
+        `JSON at '${target.expectedPath}' does not match schema:\n${z.prettifyError(error)}`,
+      );
+    } else if (error instanceof AbortError) {
+      console.log(chalk.red('[e]'), error.message);
+    } else throw error;
+
+    const shouldRegenerate =
+      autoCreateFiles ||
+      (await confirm({
+        message: `Want to regenerate ${target.name}?`,
+      }).finally(() => clearNLines(1)));
+
+    if (shouldRegenerate) {
+      clearNLines(1); // Clear error line
+      console.log(
+        chalk.blue('[i]'),
+        `Creating ${target.name} at '${target.expectedPath}'...`,
+      );
+      hadToCreate = true;
+
+      const { encoded, newJsonPath, newJsonSchemaUrl } = await recreateData();
+      if (newJsonPath) target.expectedPath = newJsonPath;
+      if (newJsonSchemaUrl) target.jsonSchemaUrl = newJsonSchemaUrl;
+
+      const dir = path.dirname(target.expectedPath);
+      if (!existsSync(dir)) await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(
+        target.expectedPath,
+        JSON.stringify(
+          typeof encoded === 'object' && target.jsonSchemaUrl
+            ? { $schema: target.jsonSchemaUrl, ...encoded }
+            : encoded,
+          undefined,
+          '  ',
+        ),
+      );
+
+      jsonData = await makeJsonData(
+        newJsonPath ?? target.expectedPath,
+        schema,
+        target.jsonSchemaUrl,
+        ...conversionArg,
+      );
+    } else throw error;
+  }
+
+  if (!jsonData) throw new Error(`Could not get data target ${target.name}`);
+
+  return { data: jsonData, hadToCreate };
+}
