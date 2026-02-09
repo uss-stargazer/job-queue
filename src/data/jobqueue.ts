@@ -1,14 +1,11 @@
 import * as z from 'zod';
-import { JsonData, makeJsonData } from '../utils/jsonData.js';
+import { JsonData } from '../utils/jsonData.js';
 import { checkProjectName, ProjectPool } from './projectpool.js';
 import { Config } from './config.js';
-import { clearNLines } from '../utils/index.js';
-import fs from 'fs/promises';
-import { existsSync } from 'fs';
-import { confirm } from '@inquirer/prompts';
-import chalk from 'chalk';
-import path from 'path';
-import { haveUserUpdateData } from '../utils/promptUser.js';
+import {
+  getDataTargetNicely,
+  haveUserUpdateData,
+} from '../utils/promptUser.js';
 
 // Types / Schemas
 
@@ -35,57 +32,13 @@ export const getJobQueue = async (
   jsonSchemaUrl: string,
   autoCreateFiles: boolean = false,
 ): Promise<JsonData<JobQueue>> => {
-  if (!existsSync(jsonPath)) {
-    console.log(
-      chalk.red('[e]'),
-      `File for jobqueue.json at '${jsonPath}' does not exist.`,
-    );
-    if (
-      autoCreateFiles ||
-      (await confirm({
-        message: `Want to create it?`,
-      }).finally(() => clearNLines(1)))
-    ) {
-      clearNLines(1);
-      console.log(chalk.blue('[i]'), `Creating ${jsonPath}...`);
-
-      await fs.mkdir(path.dirname(jsonPath), { recursive: true });
-      await fs.writeFile(
-        jsonPath,
-        JSON.stringify(
-          {
-            $schema: jsonSchemaUrl,
-            ...defaultJobQueue,
-          },
-          undefined,
-          '  ',
-        ),
-      );
-    } else
-      throw new Error(`File '${jsonPath}' for jobqueue.json does not exist`);
-  }
-
-  return await makeJsonData(jsonPath, JobQueueSchema, jsonSchemaUrl).catch(
-    (error) => {
-      if (error instanceof SyntaxError) {
-        console.log(chalk.red('[e]'), `Invalid JSON at '${jsonPath}'`);
-      } else if (error instanceof z.ZodError) {
-        console.log(
-          chalk.red('[e]'),
-          `JSON at '${jsonPath}' does not match schema:\n${z.prettifyError(error)}`,
-        );
-      } else throw error;
-
-      return confirm({ message: 'Want to overwrite with default?' }).then(
-        (shouldContinue) => {
-          if (!shouldContinue) {
-            console.log('throwing an err');
-            throw error;
-          } else return undefined;
-        },
-      );
-    },
+  const { data } = await getDataTargetNicely(
+    JobQueueSchema,
+    { name: 'jobqueue.json', expectedPath: jsonPath, jsonSchemaUrl },
+    async () => ({ encoded: defaultJobQueue }),
+    autoCreateFiles,
   );
+  return data;
 };
 
 export const updateJob = async (

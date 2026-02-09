@@ -3,13 +3,14 @@ import envPaths from 'env-paths';
 import path from 'path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
-import { JsonData, makeJsonData } from '../utils/jsonData.js';
+import { JsonData } from '../utils/jsonData.js';
 import chalk from 'chalk';
 import { JobQueueSchema, JobSchema } from './jobqueue.js';
 import { ProjectPoolSchema, ProjectSchema } from './projectpool.js';
 import { confirm } from '@inquirer/prompts';
 import { fileURLToPath, pathToFileURL } from 'url';
 import pkg from '../../package.json' with { type: 'json' };
+import { getDataTargetNicely } from '../utils/promptUser.js';
 
 // Types / Schemas
 
@@ -123,7 +124,7 @@ const updateJsonSchema = async (
 const createConfig = async (
   configDir: string,
   override?: Partial<ConfigIn>,
-): Promise<{ encoded: ConfigIn; decoded: Config }> => {
+): Promise<{ encoded: ConfigIn; jsonSchemaUrl: string }> => {
   const config: ConfigIn = {
     jobqueue: path.resolve(configDir, 'jobqueue.json'),
     projectpool: path.resolve(configDir, 'projectpool.json'),
@@ -147,7 +148,7 @@ const createConfig = async (
     }
   }
 
-  return { encoded: config, decoded: decodedConfig };
+  return { encoded: config, jsonSchemaUrl: decodedConfig.schemas.config };
 };
 
 const checkConfigSchemas = async (
@@ -217,59 +218,13 @@ export const getConfig = async (
   if (!existsSync(configDir)) await fs.mkdir(configDir, { recursive: true });
 
   // Get config data
-
-  let configData: JsonData<Config> | undefined = undefined;
-  let hadToCreate: boolean = false;
-
-  if (existsSync(configPath))
-    configData = await makeJsonData(
-      configPath,
-      ConfigSchema,
-      null,
-      toInputConfig,
-    ).catch((error) => {
-      if (error instanceof SyntaxError) {
-        console.log(chalk.red('[e]'), `Invalid JSON at '${configPath}'`);
-      } else if (error instanceof z.ZodError) {
-        console.log(
-          chalk.red('[e]'),
-          `JSON at '${configPath}' does not match schema:\n${z.prettifyError(error)}`,
-        );
-      } else throw error;
-
-      return confirm({ message: 'Want to overwrite with default?' }).then(
-        (shouldContinue) => {
-          if (!shouldContinue) throw error;
-          else return undefined;
-        },
-      );
-    });
-
-  if (!configData) {
-    hadToCreate = true;
-    console.log(chalk.blue('[i]'), `Creating config at '${configPath}'...`);
-    const { encoded: config, decoded: decodedConfig } = await createConfig(
-      configDir,
-      overrideConfig,
-    );
-    await fs.writeFile(
-      configPath,
-      JSON.stringify(
-        {
-          $schema: decodedConfig.schemas['config'],
-          ...config,
-        },
-        undefined,
-        '  ',
-      ),
-    );
-    configData = await makeJsonData(
-      configPath,
-      ConfigSchema,
-      decodedConfig.schemas.config,
-      toInputConfig,
-    );
-  }
+  const { data: configData, hadToCreate } = await getDataTargetNicely(
+    ConfigSchema,
+    { name: 'config.json', expectedPath: configPath },
+    () => createConfig(configDir, overrideConfig),
+    false,
+    toInputConfig,
+  );
 
   // Validate and apply config data contents
   await updateNestedObject(
