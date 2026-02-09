@@ -2,12 +2,13 @@ import * as z from 'zod';
 import { JsonData, makeJsonData } from '../utils/jsonData.js';
 import { checkProjectName, ProjectPool } from './projectpool.js';
 import { Config } from './config.js';
-import { clearNLines, haveUserUpdateData } from '../utils/index.js';
+import { clearNLines } from '../utils/index.js';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import path from 'path';
+import { haveUserUpdateData } from '../utils/promptUser.js';
 
 // Types / Schemas
 
