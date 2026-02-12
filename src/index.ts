@@ -22,15 +22,25 @@ async function loadData(
     configPath: string;
   }
 > {
-  const { config, path: configPath } = await getConfig(
-    overrideConfigDir,
-    overrideConfig,
-  );
+  const {
+    config,
+    path: configPath,
+    hadToCreate: autoCreateOtherFiles,
+  } = await getConfig(overrideConfigDir, overrideConfig);
+
   return {
     config,
     configPath,
-    jobqueue: await getJobQueue(config.data.jobqueue),
-    projectpool: await getProjectPool(config.data.projectpool),
+    jobqueue: await getJobQueue(
+      config.data.jobqueue,
+      config.data.schemas.jobqueue,
+      autoCreateOtherFiles,
+    ),
+    projectpool: await getProjectPool(
+      config.data.projectpool,
+      config.data.schemas.projectpool,
+      autoCreateOtherFiles,
+    ),
   };
 }
 

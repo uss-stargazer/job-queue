@@ -3,7 +3,11 @@ import * as z from 'zod';
 import { JsonData, makeJsonData } from '../utils/jsonData.js';
 import { JobQueue } from './jobqueue.js';
 import { Config } from './config.js';
-import { haveUserUpdateData } from '../utils/index.js';
+import { clearNLines, haveUserUpdateData } from '../utils/index.js';
+import { existsSync } from 'fs';
+import fs from 'fs/promises';
+import chalk from 'chalk';
+import path from 'path';
 
 // Types / Schemas
 
@@ -21,12 +25,47 @@ export const ProjectPoolSchema = z.object({
 }).meta({title: 'Root project pool', description: 'Root object for pool of projects.'});
 export type ProjectPool = z.infer<typeof ProjectPoolSchema>;
 
+const defaultProjectPool: ProjectPool = { pool: [] };
+
 // Methods
 
 export const getProjectPool = async (
   jsonPath: string,
-): Promise<JsonData<ProjectPool>> =>
-  await makeJsonData(jsonPath, ProjectPoolSchema);
+  jsonSchemaUrl: string,
+  autoCreateFiles: boolean = false,
+): Promise<JsonData<ProjectPool>> => {
+  if (!existsSync(jsonPath)) {
+    console.log(
+      chalk.red('[e]'),
+      `File for projectpool.json at '${jsonPath}' does not exist.`,
+    );
+    if (
+      autoCreateFiles ||
+      (await confirm({
+        message: `Want to create it?`,
+      }).finally(() => clearNLines(1)))
+    ) {
+      clearNLines(1);
+      console.log(chalk.blue('[i]'), `Creating ${jsonPath}...`);
+
+      await fs.mkdir(path.dirname(jsonPath), { recursive: true });
+      await fs.writeFile(
+        jsonPath,
+        JSON.stringify(
+          {
+            $schema: jsonSchemaUrl,
+            ...defaultProjectPool,
+          },
+          undefined,
+          '  ',
+        ),
+      );
+    } else
+      throw new Error(`File '${jsonPath}' for projectpool.json does not exist`);
+  }
+
+  return await makeJsonData(jsonPath, ProjectPoolSchema, jsonSchemaUrl);
+};
 
 export const checkProjectName = (name: string, projects: Project[]): boolean =>
   projects.some((project) => project.name === name);

@@ -5,12 +5,8 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { JsonData, makeJsonData } from '../utils/jsonData.js';
 import chalk from 'chalk';
-import { JobQueue, JobQueueSchema, JobSchema } from './jobqueue.js';
-import {
-  ProjectPool,
-  ProjectPoolSchema,
-  ProjectSchema,
-} from './projectpool.js';
+import { JobQueueSchema, JobSchema } from './jobqueue.js';
+import { ProjectPoolSchema, ProjectSchema } from './projectpool.js';
 import { confirm } from '@inquirer/prompts';
 import { fileURLToPath, pathToFileURL } from 'url';
 import pkg from '../../package.json' with { type: 'json' };
@@ -124,11 +120,6 @@ const updateJsonSchema = async (
 
 // Config methods
 
-const defaultData: { jobqueue: JobQueue; projectpool: ProjectPool } = {
-  jobqueue: { queue: [] },
-  projectpool: { pool: [] },
-};
-
 const createConfig = async (
   configDir: string,
   override?: Partial<ConfigIn>,
@@ -140,27 +131,6 @@ const createConfig = async (
     ...override,
   };
   const decodedConfig = ConfigSchema.decode(config);
-
-  // jobqueue and projectpool paths
-  for (const key of ['jobqueue', 'projectpool'] as const) {
-    if (!existsSync(config[key])) {
-      console.log(
-        chalk.blue('[i]'),
-        `Creating ${path.join('{config}', path.relative(configDir, config[key]))}...`,
-      );
-      await fs.writeFile(
-        config[key],
-        JSON.stringify(
-          {
-            $schema: decodedConfig.schemas[key],
-            ...defaultData[key],
-          },
-          undefined,
-          '  ',
-        ),
-      );
-    }
-  }
 
   // schemas
   if (!existsSync(config.schemas)) await fs.mkdir(config.schemas);
@@ -180,34 +150,11 @@ const createConfig = async (
   return { encoded: config, decoded: decodedConfig };
 };
 
-const checkConfig = async (
+const checkConfigSchemas = async (
   config: Config,
   configPath: string,
 ): Promise<void> => {
   try {
-    // Make sure jobqueue and project pool exist and create if not
-    for (const key of ['jobqueue', 'projectpool']) {
-      if (!existsSync(config[key]))
-        if (
-          ['jobqueue', 'projectpool'].includes(key) &&
-          (await confirm({
-            message: `File at config.${key} does not exist. Want to create it?`,
-          }))
-        )
-          await fs.writeFile(
-            config[key],
-            JSON.stringify(
-              {
-                $schema: config.schemas[key],
-                ...defaultData[key],
-              },
-              undefined,
-              '  ',
-            ),
-          );
-        else throw new Error(`File '${config[key]}' in config does not exist`);
-    }
-
     // Make sure each schema exists and is the correct version
     const outdatedSchemas: JsonSchemaName[] = [];
     for (const schema of Object.keys(
@@ -258,7 +205,11 @@ const checkConfig = async (
 export const getConfig = async (
   overrideConfigDir?: string,
   overrideConfig?: Partial<ConfigIn>,
-): Promise<{ config: JsonData<Config>; path: string }> => {
+): Promise<{
+  config: JsonData<Config>;
+  path: string;
+  hadToCreate: boolean;
+}> => {
   const configDir =
     overrideConfigDir ?? path.resolve(envPaths('job-queue').config);
   const configPath = path.resolve(configDir, 'config.json');
@@ -268,11 +219,13 @@ export const getConfig = async (
   // Get config data
 
   let configData: JsonData<Config> | undefined = undefined;
+  let hadToCreate: boolean = false;
 
   if (existsSync(configPath))
     configData = await makeJsonData(
       configPath,
       ConfigSchema,
+      null,
       toInputConfig,
     ).catch((error) => {
       if (error instanceof SyntaxError) {
@@ -293,6 +246,7 @@ export const getConfig = async (
     });
 
   if (!configData) {
+    hadToCreate = true;
     console.log(chalk.blue('[i]'), `Creating config at '${configPath}'...`);
     const { encoded: config, decoded: decodedConfig } = await createConfig(
       configDir,
@@ -309,7 +263,12 @@ export const getConfig = async (
         '  ',
       ),
     );
-    configData = await makeJsonData(configPath, ConfigSchema, toInputConfig);
+    configData = await makeJsonData(
+      configPath,
+      ConfigSchema,
+      decodedConfig.schemas.config,
+      toInputConfig,
+    );
   }
 
   // Validate and apply config data contents
@@ -317,7 +276,11 @@ export const getConfig = async (
     configData.data,
     ConfigSchema.partial().decode(overrideConfig),
   );
-  await checkConfig(configData.data, configPath);
+  await checkConfigSchemas(configData.data, configPath);
 
-  return { config: configData, path: configPath };
+  return {
+    config: configData,
+    path: configPath,
+    hadToCreate,
+  };
 };
