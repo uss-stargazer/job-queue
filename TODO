@@ -9,4 +9,3 @@
     - add full diff for conflicts
     - setting for whether it should check before pushing gist (default: always)
     - action for sync with github
-    - add gistData common patterns util file for common functions like checking whether user wants to pull/push, etc

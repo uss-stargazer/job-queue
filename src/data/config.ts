@@ -25,10 +25,24 @@ type JsonSchemaName = (typeof jsonSchemaNames)[number];
 
 const NonemptyString = z.string().nonempty();
 // prettier-ignore
+const GistDataObject = z.object({
+  local: NonemptyString.meta({title: "Local JSON path", description: "Path to local JSON file for data linked to the Gist."}),
+  ghGistId: NonemptyString.regex(/^[A-Fa-f0-9]{32}$/, {error: "Is not valid GitHub gist ID"}).meta({title: "Gist ID", description: "ID of gist to link (can get from URL of the gist you created)."}),
+  ghAccessToken: NonemptyString.regex(/^(gh[ps]_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})$/, {error: "Is not valid GitHub access token"}).meta({title: "Gist Access Token", description: "GitHub access token for read/write access to your gist."})
+}).meta({title: "Gist-Linked JSON", description: "Data for a configuration/data file linked to a GitHub gist."})
+
 // !!! NOTE !!! Whenever you change this schema, PLEASE update package.json version (so JSON schemas will get updated automatically)
+// prettier-ignore
 export const ConfigSchema = z.object({
-  jobqueue: NonemptyString.meta({title: "Jobqueue path", description: "Path to jobqueue.json."}),
-  projectpool: NonemptyString.meta({title: "Projectpool path", description: "Path to projectpool.json."}),
+  jobqueue: z.union([
+    NonemptyString.meta({title: "Jobqueue path", description: "Path to local jobqueue.json."}),
+    GistDataObject.meta({title: "Gist-Linked Jobqueue", description: "Data for jobqueue.json locally and linked to gist on GitHub."})
+  ]),
+  projectpool: z.union([
+    NonemptyString.meta({title: "Projectpool path", description: "Path to local projectpool.json."}),
+    GistDataObject.meta({title: "Gist-Linked Jobqueue", description: "Data for projectpool.json locally and linked to gist on GitHub."})
+  ]),
+  
   editor: NonemptyString.optional().meta({title: "Editor command", description: "Command to run editor. Will be run like `<editor> /some/data.json` so make sure it waits."}),
 
   // schemas stored as path to schemas dir, but expanded on parse
@@ -120,6 +134,10 @@ const updateJsonSchema = async (
 };
 
 // Config methods
+
+export const getDataPathFromConfig = (
+  data: Config['jobqueue'] | Config['projectpool'],
+): string => (typeof data === 'string' ? data : data.local);
 
 const createConfig = async (
   configDir: string,

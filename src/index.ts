@@ -9,16 +9,23 @@ import actions, {
   actionsDependentOnJobs,
   actionsDependentOnProjects,
 } from './actions.js';
-import { ConfigIn, getConfig } from './data/config.js';
+import {
+  Config,
+  ConfigIn,
+  getConfig,
+  getDataPathFromConfig,
+} from './data/config.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
-import { DataInJsonDatas, editData } from './data/index.js';
+import { editData, WrappedData } from './data/index.js';
+import { simpleDeepCompare } from './utils/index.js';
 
 async function loadData(
   overrideConfigDir: string,
   overrideConfig: Partial<ConfigIn>,
+  previousConfig?: Config,
 ): Promise<
-  DataInJsonDatas & {
+  WrappedData & {
     configPath: string;
   }
 > {
@@ -28,20 +35,46 @@ async function loadData(
     hadToCreate: autoCreateOtherFiles,
   } = await getConfig(overrideConfigDir, overrideConfig);
 
-  return {
+  const data = {
     config,
     configPath,
     jobqueue: await getJobQueue(
-      config.data.jobqueue,
+      getDataPathFromConfig(config.data.jobqueue),
       config.data.schemas.jobqueue,
       autoCreateOtherFiles,
     ),
     projectpool: await getProjectPool(
-      config.data.projectpool,
+      getDataPathFromConfig(config.data.projectpool),
       config.data.schemas.projectpool,
       autoCreateOtherFiles,
     ),
   };
+
+  for (const key of ['jobqueue', 'projectpool'] as const) {
+    if (
+      typeof config.data[key] === 'object' &&
+      (!previousConfig ||
+        !simpleDeepCompare(config.data[key], previousConfig[key]))
+    ) {
+      await data[key].linkGist({
+        id: config.data[key].ghGistId,
+        accessToken: config.data[key].ghAccessToken,
+      });
+      console.log(chalk.blue('[i]'), 'initial pull of', key);
+      await data[key].pull(); // TODO: try catch needed here?
+    }
+  }
+
+  return data;
+}
+
+async function pushGistData(data: WrappedData): Promise<void> {
+  for (const key of ['jobqueue', 'projectpool'] as const) {
+    if (data[key].isLinked) {
+      console.log(chalk.blue('[i]'), 'on exit, pushing data for', key);
+      await data[key].push(); // TODO: try catch needed here?
+    }
+  }
 }
 
 export default async function main(
@@ -89,7 +122,11 @@ export default async function main(
 
       if (action === 'editData') {
         await editData(data, data.configPath);
-        data = await loadData(overrideConfigDir, overrideConfig);
+        data = await loadData(
+          overrideConfigDir,
+          overrideConfig,
+          data.config.data,
+        );
       } else await actions[action](data);
 
       console.log(); // New line for action seperation
@@ -97,4 +134,6 @@ export default async function main(
   } catch (error) {
     if (!(error instanceof ExitPromptError)) throw error;
   }
+
+  await pushGistData(data);
 }
