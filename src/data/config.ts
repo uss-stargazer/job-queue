@@ -226,7 +226,7 @@ const checkConfig = async (
         if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
           console.log(
             chalk.yellow('[w]'),
-            `${path.join('{config}', path.basename(config.schemas[schema]))} is malformed. Overwriting...`,
+            `${path.join('{schemas}', path.basename(config.schemas[schema]))} is malformed. Overwriting...`,
           );
           await updateJsonSchema(jsonSchemas[schema], config.schemas[schema]);
         } else if (version !== pkg.version) {
@@ -235,7 +235,7 @@ const checkConfig = async (
       } else {
         console.log(
           chalk.blue('[i]'),
-          `${path.join('{config}', path.basename(config.schemas[schema]))} does not exist. Creating...`,
+          `${path.join('{schemas}', path.basename(config.schemas[schema]))} does not exist. Creating...`,
         );
         await updateJsonSchema(jsonSchemas[schema], config.schemas[schema]);
       }
