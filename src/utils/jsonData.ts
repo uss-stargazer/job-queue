@@ -12,6 +12,7 @@ export type JsonData<T> = {
 export const makeJsonData = async <S extends z.ZodType>(
   jsonPath: string,
   schema: S,
+  overrideJsonSchemaUrl?: string,
 
   // If z.input is not equal to z.output, we need a conversion function
   ...[toInput]: (<T>() => T extends z.input<S> ? 1 : 2) extends <
@@ -25,7 +26,7 @@ export const makeJsonData = async <S extends z.ZodType>(
       throw new Error(`Couldn't open '${jsonPath}': ${error}`);
     }),
   );
-  const schemaUrl = json['$schema']; // save $schema (if it exists) for writing on sync()
+  const schemaUrl = overrideJsonSchemaUrl ?? json['$schema']; // save $schema (if it exists) for writing on sync()
 
   const data = schema.parse(json);
   const jsonData: JsonData<z.infer<S>> = {

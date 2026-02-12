@@ -80,11 +80,7 @@ export const haveUserUpdateData = async <
       { message: 'Type `y` to abort...' },
       { signal },
     )
-      .finally(() => {
-        // Remove prompt line
-        process.stdout.moveCursor(0, -1);
-        process.stdout.clearLine(1);
-      })
+      .finally(() => clearNLines(1)) // Remove prompt line
       .then(async (shouldAbort) => {
         if (shouldAbort) {
           if (file.cleanup) await file.cleanup();
@@ -147,4 +143,12 @@ export const haveUserUpdateData = async <
 
   if (file.cleanup) await file.cleanup();
   return updatedData;
+};
+
+export const clearNLines = (n: number): void => {
+  for (let i = 0; i < n; i++) {
+    process.stdout.moveCursor(0, -1);
+    process.stdout.clearLine(1);
+  }
+  process.stdout.cursorTo(0);
 };
