@@ -2,9 +2,9 @@ import chalk from 'chalk';
 import { confirm, search } from '@inquirer/prompts';
 import sortableCheckbox from './utils/sortableCheckbox.js';
 import { AbortError, reorder } from './utils/index.js';
-import { DataInJsonDatas } from './data/index.js';
 import { Job, updateJob } from './data/jobqueue.js';
 import { Project, updateProject } from './data/projectpool.js';
+import { WrappedData } from './data/index.js';
 
 export const actionNames = [
   'dequeueJob',
@@ -23,7 +23,7 @@ export const actionsDependentOnProjects: ActionName[] = [
 ];
 
 const actions: {
-  [K in ActionName]: (data: DataInJsonDatas) => Promise<void>;
+  [K in ActionName]: (data: WrappedData) => Promise<void>;
 } = {
   dequeueJob: async ({ jobqueue, projectpool, config }) => {
     const queue = jobqueue.data.queue;

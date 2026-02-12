@@ -1,13 +1,14 @@
 import * as z from 'zod';
 import * as tmp from 'tmp-promise';
 import chalk from 'chalk';
-import { confirm } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import { editInteractively } from 'edit-like-git';
 import fs from 'fs/promises';
 import { AbortError, clearNLines, IsAsymmetricZod } from './index.js';
 import { JsonData, makeJsonData } from './jsonData.js';
 import { existsSync } from 'fs';
 import path from 'path';
+import { makeGistData } from './gistData.js';
 
 type CheckFunction<T> = (
   input: T,
@@ -225,3 +226,38 @@ export async function getDataTargetNicely<S extends z.ZodType>(
 
   return { data: jsonData, hadToCreate };
 }
+
+// GistData functions for easier use --------------
+
+type MakeGistParams<T extends z.ZodType> = Parameters<typeof makeGistData<T>>;
+
+export const handleGistConflict: MakeGistParams<z.ZodAny>[3] = async (
+  ours,
+  theirs,
+) => {
+  console.log(chalk.yellow('[w]'), `Pulled gist is different than local JSON`);
+  const oursOrTheirs = await select({
+    message: 'Want to use ours or theirs?',
+    choices: [
+      { value: 'ours', description: '(local JSON)' },
+      { value: 'theirs', description: '(the gist)' },
+    ] as const,
+  });
+  return oursOrTheirs === 'theirs' ? theirs : ours;
+};
+
+export const handleInvalidGist: MakeGistParams<z.ZodAny>[4] = async (
+  _,
+  error,
+) => {
+  let filename;
+  console.log(
+    chalk.red('[e]'),
+    `Pulled gist for '${filename}' is invalid: doesn't match schema:\n${error instanceof z.ZodError ? z.prettifyError(error) : error.message}"`,
+  );
+  const shouldContinue = await confirm({
+    message: 'Ignore gist contents and continue?',
+  });
+  if (!shouldContinue)
+    throw new Error(`Invalid gist for '${filename}' and user aborted`);
+};

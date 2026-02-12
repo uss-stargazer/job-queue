@@ -31,3 +31,14 @@ export const clearNLines = (n: number): void => {
   }
   process.stdout.cursorTo(0);
 };
+
+/**
+ * For noncomplex deep compare, simply stringifies the two values and compares the strings.
+ */
+export const simpleDeepCompare = (
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  a: any,
+  b: any,
+  replacer?: (key: string, value: any) => any,
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+): boolean => JSON.stringify(a, replacer) === JSON.stringify(b, replacer);
