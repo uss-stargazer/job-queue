@@ -19,6 +19,7 @@ import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
 import { editData, WrappedData } from './data/index.js';
 import { simpleDeepCompare } from './utils/index.js';
+import dns from 'dns/promises';
 
 async function loadData(
   overrideConfigDir: string,
@@ -50,12 +51,24 @@ async function loadData(
     ),
   };
 
+  let connectionError: Error | null = undefined;
   for (const key of ['jobqueue', 'projectpool'] as const) {
     if (
       typeof config.data[key] === 'object' &&
       (!previousConfig ||
         !simpleDeepCompare(config.data[key], previousConfig[key]))
     ) {
+      // Online check connection if its required for a gist and it hasn't already been checked
+      if (connectionError === undefined) {
+        const resolved = await dns
+          .resolve('github.com')
+          .catch(
+            (error) => new Error(`Could not resolve github.com: ${error}`),
+          );
+        connectionError = resolved instanceof Error ? resolved : null;
+        if (connectionError) break;
+      }
+
       await data[key].linkGist({
         id: config.data[key].ghGistId,
         accessToken: config.data[key].ghAccessToken,
@@ -63,6 +76,11 @@ async function loadData(
       console.log(chalk.blue('[i]'), 'initial pull of', key);
       await data[key].pull(); // TODO: try catch needed here?
     }
+  }
+
+  if (connectionError) {
+    console.log(chalk.red('[e]'), connectionError.message);
+    console.log(chalk.blue('[i]'), 'Continuing offline...');
   }
 
   return data;
