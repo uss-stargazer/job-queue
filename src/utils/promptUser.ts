@@ -227,6 +227,9 @@ export async function getDataTargetNicely<S extends z.ZodType>(
   return { data: jsonData, hadToCreate };
 }
 
+export const inquirerConfirm = (message: string): Promise<boolean> =>
+  confirm({ message }).finally(() => clearNLines(1));
+
 // GistData functions for easier use --------------
 
 type MakeGistParams<T extends z.ZodType> = Parameters<typeof makeGistData<T>>;

@@ -43,14 +43,16 @@ export const ConfigSchema = z.object({
     GistDataObject.meta({title: "Gist-Linked Jobqueue", description: "Data for projectpool.json locally and linked to gist on GitHub."})
   ]),
   
-  editor: NonemptyString.optional().meta({title: "Editor command", description: "Command to run editor. Will be run like `<editor> /some/data.json` so make sure it waits."}),
-
   // schemas stored as path to schemas dir, but expanded on parse
   schemas: NonemptyString.meta({title: "Schemas directory", description: `Path to directory containing: ${jsonSchemaNames.map(base => `${base}.schema.json`).join(", ")}.`}).transform(
     (schemasDir) => Object.fromEntries(
       jsonSchemaNames.map((base) => [base, pathToFileURL(path.resolve(schemasDir, `${base}.schema.json`)).href])
     ) as {[K in JsonSchemaName]: string}
   ),
+
+  editor: NonemptyString.optional().meta({title: "Editor command", description: "Command to run editor. Will be run like `<editor> /some/data.json` so make sure it waits."}),
+  confirmGistUpdates: z.boolean().optional().meta({description: "Whether to prompt before pushing or pulling a gist from GitHub."}),
+  confirmOffline: z.boolean().optional().meta({description: "Whether to confirm before using offline (if there are gists in config)."})
 });
 
 export type ConfigIn = z.input<typeof ConfigSchema>;

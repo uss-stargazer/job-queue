@@ -7,5 +7,4 @@
     - take all zod metadata, requirements, and notes and put it in readme for users that don't check json schema
 - gist-refactor
     - add full diff for conflicts
-    - setting for whether it should check before pushing gist (default: always)
     - action for sync with github
