@@ -15,6 +15,7 @@ import { getProjectPool } from './data/projectpool.js';
 import { editData, WrappedData } from './data/index.js';
 import { simpleDeepCompare } from './utils/index.js';
 import dns from 'dns/promises';
+import { inquirerConfirm } from './utils/promptUser.js';
 
 async function loadData(
   overrideConfigDir: string,
@@ -72,14 +73,26 @@ async function loadData(
           id: config.data[key].ghGistId,
           accessToken: config.data[key].ghAccessToken,
         });
-        console.log(chalk.blue('[i]'), 'initial pull of', key);
-        await data[key].pull(); // TODO: try catch needed here?
+
+        // Initial pull only if its changed (and user oks it if that's set in config)
+        if (
+          !config.data.confirmGistUpdates ||
+          (await inquirerConfirm(`Pull gist for ${key}?`))
+        ) {
+          console.log(chalk.blue('[i]'), 'initial pull of gist for', key);
+          await data[key].pull();
+        }
       }
     }
   }
 
   if (connectionError) {
     console.log(chalk.red('[e]'), connectionError.message);
+    if (
+      config.data.confirmOffline &&
+      !(await inquirerConfirm('Continue offline?'))
+    )
+      throw connectionError;
     console.log(chalk.blue('[i]'), 'Continuing offline...');
   }
 
@@ -88,9 +101,13 @@ async function loadData(
 
 async function pushGistData(data: WrappedData): Promise<void> {
   for (const key of ['jobqueue', 'projectpool'] as const) {
-    if (data[key].isLinked) {
-      console.log(chalk.blue('[i]'), 'on exit, pushing data for', key);
-      await data[key].push(); // TODO: try catch needed here?
+    if (
+      data[key].isLinked &&
+      (!data.config.data.confirmGistUpdates ||
+        (await inquirerConfirm(`Push gist for ${key}?`)))
+    ) {
+      console.log(chalk.blue('[i]'), 'exit push of gist for', key);
+      await data[key].push();
     }
   }
 }
