@@ -9,12 +9,7 @@ import actions, {
   actionsDependentOnJobs,
   actionsDependentOnProjects,
 } from './actions.js';
-import {
-  Config,
-  ConfigIn,
-  getConfig,
-  getDataPathFromConfig,
-} from './data/config.js';
+import { ConfigIn, getConfig, getDataPathFromConfig } from './data/config.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
 import { editData, WrappedData } from './data/index.js';
@@ -24,7 +19,7 @@ import dns from 'dns/promises';
 async function loadData(
   overrideConfigDir: string,
   overrideConfig: Partial<ConfigIn>,
-  previousConfig?: Config,
+  previousData?: WrappedData,
 ): Promise<
   WrappedData & {
     configPath: string;
@@ -53,28 +48,33 @@ async function loadData(
 
   let connectionError: Error | null = undefined;
   for (const key of ['jobqueue', 'projectpool'] as const) {
-    if (
-      typeof config.data[key] === 'object' &&
-      (!previousConfig ||
-        !simpleDeepCompare(config.data[key], previousConfig[key]))
-    ) {
-      // Online check connection if its required for a gist and it hasn't already been checked
-      if (connectionError === undefined) {
-        const resolved = await dns
-          .resolve('github.com')
-          .catch(
-            (error) => new Error(`Could not resolve github.com: ${error}`),
-          );
-        connectionError = resolved instanceof Error ? resolved : null;
-        if (connectionError) break;
-      }
+    if (typeof config.data[key] === 'object') {
+      if (
+        previousData &&
+        simpleDeepCompare(config.data[key], previousData.config.data[key])
+      ) {
+        if (key === 'jobqueue') data['jobqueue'] = previousData['jobqueue'];
+        else if (key === 'projectpool')
+          data['projectpool'] = previousData['projectpool'];
+      } else {
+        // Online check connection if its required for a gist and it hasn't already been checked
+        if (connectionError === undefined) {
+          const resolved = await dns
+            .resolve('github.com')
+            .catch(
+              (error) => new Error(`Could not resolve github.com: ${error}`),
+            );
+          connectionError = resolved instanceof Error ? resolved : null;
+          if (connectionError) break;
+        }
 
-      await data[key].linkGist({
-        id: config.data[key].ghGistId,
-        accessToken: config.data[key].ghAccessToken,
-      });
-      console.log(chalk.blue('[i]'), 'initial pull of', key);
-      await data[key].pull(); // TODO: try catch needed here?
+        await data[key].linkGist({
+          id: config.data[key].ghGistId,
+          accessToken: config.data[key].ghAccessToken,
+        });
+        console.log(chalk.blue('[i]'), 'initial pull of', key);
+        await data[key].pull(); // TODO: try catch needed here?
+      }
     }
   }
 
@@ -140,11 +140,7 @@ export default async function main(
 
       if (action === 'editData') {
         await editData(data, data.configPath);
-        data = await loadData(
-          overrideConfigDir,
-          overrideConfig,
-          data.config.data,
-        );
+        data = await loadData(overrideConfigDir, overrideConfig, data);
       } else await actions[action](data);
 
       console.log(); // New line for action seperation

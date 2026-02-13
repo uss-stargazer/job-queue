@@ -143,11 +143,17 @@ export const makeGistData = async <S extends z.ZodType>(
       };
 
       gistData.push = async (): Promise<void> => {
+        if (!gist)
+          console.warn(
+            'pushing GistData without pulling first; will overwrite',
+          );
+
         await gistData.sync();
         if (!simpleDeepCompare(lastGistData, gistData.data))
           await pushGist(octokit, filename, gistId, {
             description:
-              overwriteDescription && gist.description !== overwriteDescription
+              overwriteDescription &&
+              (!gist || gist.description !== overwriteDescription)
                 ? overwriteDescription
                 : undefined,
             contents: JSON.stringify(
