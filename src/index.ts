@@ -101,14 +101,16 @@ async function loadData(
   return data;
 }
 
-async function pushGistData(data: WrappedData): Promise<void> {
+async function syncData(data: WrappedData): Promise<void> {
   for (const key of ['jobqueue', 'projectpool'] as const) {
+    await data[key].sync();
+
     if (
       data[key].isLinked &&
       (!data.config.data.confirmGistUpdates ||
         (await inquirerConfirm(`Push gist for ${key}?`)))
     ) {
-      console.log(chalk.blue('[i]'), 'exit push of gist for', key);
+      console.log(chalk.blue('[i]'), 'sync push of gist for', key);
       await data[key].push();
     }
   }
@@ -128,7 +130,7 @@ export default async function main(
 
   try {
     while (true) {
-      const action = await select<ActionName | 'editData'>({
+      const action = await select<ActionName | 'editData' | 'sync'>({
         message: 'Select action',
         choices: [
           ...actionNames.map((action) => {
@@ -154,12 +156,16 @@ export default async function main(
           }),
           new Separator(),
           { name: 'editData', value: 'editData' },
+          { name: 'sync', value: 'sync' },
         ],
+        pageSize: actionNames.length + 3,
       });
 
       if (action === 'editData') {
         await editData(data, data.configPath);
         data = await loadData(overrideConfigDir, overrideConfig, data);
+      } else if (action === 'sync') {
+        await syncData(data);
       } else await actions[action](data);
 
       console.log(); // New line for action seperation
@@ -168,5 +174,5 @@ export default async function main(
     if (!(error instanceof ExitPromptError)) throw error;
   }
 
-  await pushGistData(data);
+  await syncData(data);
 }
