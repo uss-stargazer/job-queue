@@ -39,11 +39,13 @@ async function loadData(
       getDataPathFromConfig(config.data.jobqueue),
       config.data.schemas.jobqueue,
       autoCreateOtherFiles,
+      config.data.editor,
     ),
     projectpool: await getProjectPool(
       getDataPathFromConfig(config.data.projectpool),
       config.data.schemas.projectpool,
       autoCreateOtherFiles,
+      config.data.editor,
     ),
   };
 

@@ -9,29 +9,24 @@ import { JsonData, makeJsonData } from './jsonData.js';
 import { existsSync } from 'fs';
 import path from 'path';
 import { makeGistData } from './gistData.js';
+import { diffLines } from 'diff';
 
 type CheckFunction<T> = (
   input: T,
 ) => 'pass' | 'continue' | { errMessage: string };
+type HaveUserUpdateOptions = Partial<{
+  editor: string;
+  errorHead: string;
+  file: { type: 'tmp'; prefix?: string } | { type: 'abs'; path: string };
+  tooltips: string[];
+  jsonSchemaUrl: string;
+}>;
 
-export const haveUserUpdateData = async <
-  S extends z.ZodType,
-  D extends 'in' | 'out' = 'out',
->(
-  schema: S,
-  data: D extends 'in' ? z.input<S> : z.output<S>,
-  options?: Partial<{
-    editor: string;
-    errorHead: string;
-    file: { type: 'tmp'; prefix?: string } | { type: 'abs'; path: string };
-    tooltips: string[];
-    jsonSchemaUrl: string;
-  }>,
-  checks?: Partial<{
-    preparse: CheckFunction<string>;
-    postparse: CheckFunction<z.infer<S>>;
-  }>,
-): Promise<z.infer<S> | undefined> => {
+export const haveUserUpdateContents = async (
+  contents: string,
+  options?: HaveUserUpdateOptions,
+  check?: CheckFunction<string>,
+): Promise<string | undefined> => {
   const file: { path: string; cleanup?: () => Promise<void> } =
     options?.file?.type && options.file.type === 'abs'
       ? { path: options.file.path }
@@ -42,15 +37,6 @@ export const haveUserUpdateData = async <
         });
 
   const originalContents = await fs.readFile(file.path, { encoding: 'utf8' });
-  let contents: string | void = JSON.stringify(
-    schema instanceof z.ZodObject && options?.jsonSchemaUrl
-      ? { $schema: options?.jsonSchemaUrl, ...(data as object) }
-      : data,
-    undefined,
-    '  ',
-  );
-
-  let updatedData: z.infer<S> | undefined = undefined;
 
   while (true) {
     // Open temp file in editor while also allowing user to abort
@@ -79,24 +65,57 @@ export const haveUserUpdateData = async <
 
           throw new AbortError('User aborted action');
         }
+        return undefined;
       });
     contents = await Promise.race([editorPromise, abortPromise]);
     controller.abort();
     if (typeof contents !== 'string') return undefined;
 
+    if (check) {
+      const error = check(contents);
+      if (error === 'pass') {
+        break;
+      } else if (typeof error === 'object') {
+        console.log(chalk.red(`${options?.errorHead}:`), error.errMessage);
+        continue;
+      }
+    }
+  }
+
+  if (file.cleanup) await file.cleanup();
+  return contents;
+};
+
+export const haveUserUpdateData = async <
+  S extends z.ZodType,
+  D extends 'in' | 'out' = 'out',
+>(
+  schema: S,
+  data: D extends 'in' ? z.input<S> : z.output<S>,
+  options?: HaveUserUpdateOptions,
+  checks?: Partial<{
+    preparse: CheckFunction<string>;
+    postparse: CheckFunction<z.infer<S>>;
+  }>,
+): Promise<z.infer<S> | undefined> => {
+  const contents: string | void = JSON.stringify(
+    schema instanceof z.ZodObject && options?.jsonSchemaUrl
+      ? { $schema: options?.jsonSchemaUrl, ...(data as object) }
+      : data,
+    undefined,
+    '  ',
+  );
+
+  let updatedData: z.infer<S> | undefined = undefined;
+
+  await haveUserUpdateContents(contents, options, (contents) => {
     // Load back editor contents and validate them
 
     if (checks?.preparse) {
-      const preparseError = checks?.preparse(contents);
-      if (preparseError === 'pass') {
+      const preparseError = checks.preparse(contents);
+      if (preparseError !== 'continue') {
         updatedData = undefined;
-        break;
-      } else if (typeof preparseError === 'object') {
-        console.log(
-          chalk.red(`${options?.errorHead}:`),
-          preparseError.errMessage,
-        );
-        continue;
+        return preparseError;
       }
     }
 
@@ -104,32 +123,21 @@ export const haveUserUpdateData = async <
       updatedData = schema.parse(JSON.parse(contents));
 
       if (checks?.postparse) {
-        const postparseError = checks?.postparse(updatedData);
-        if (typeof postparseError === 'object') {
-          console.log(
-            chalk.red(`${options?.errorHead}:`),
-            postparseError.errMessage,
-          );
-          continue;
-        }
+        const postparseError = checks.postparse(updatedData);
+        if (typeof postparseError === 'object') return postparseError;
       }
-      break;
+      return 'pass';
     } catch (error) {
       if (error instanceof SyntaxError)
-        console.log(
-          chalk.red(`${options?.errorHead}:`),
-          `Recieved invalid JSON: ${error.message}`,
-        );
+        return { errMessage: `Recieved invalid JSON: ${error.message}` };
       else if (error instanceof z.ZodError)
-        console.log(
-          chalk.red(`${options?.errorHead}:`),
-          `JSON does not match schema:\n${z.prettifyError(error)}`,
-        );
+        return {
+          errMessage: `JSON does not match schema:\n${z.prettifyError(error)}`,
+        };
       else throw error;
     }
-  }
+  });
 
-  if (file.cleanup) await file.cleanup();
   return updatedData;
 };
 
@@ -230,24 +238,101 @@ export async function getDataTargetNicely<S extends z.ZodType>(
 export const inquirerConfirm = (message: string): Promise<boolean> =>
   confirm({ message }).finally(() => clearNLines(1));
 
+const formatGitChange = (
+  ours: string,
+  theirs: string,
+  removeExtraLine: boolean = false, // Hacky hack: annoying extra line with usage in resolveConflictLikeGit
+): string =>
+  `<<<<<<< ours
+${ours}${removeExtraLine ? '' : '\n'}=======
+${theirs}${removeExtraLine ? '' : '\n'}>>>>>>> theirs
+`;
+
+export const resolveConflictLikeGit = async <S extends z.ZodType>(
+  schema: S,
+  ours: z.infer<S>,
+  theirs: z.infer<S>,
+  editor?: string,
+): Promise<z.infer<S>> => {
+  const objStrings = [ours, theirs].map((o) =>
+    JSON.stringify(o, undefined, '  '),
+  ) as [string, string];
+  const diff = diffLines(...objStrings);
+
+  let changeGroup: [ours: string, theirs: string] | null = null;
+  const diffLikeGit = diff.reduce((diffString, change, idx) => {
+    if (!change.added && !change.removed) {
+      if (changeGroup) {
+        diffString += formatGitChange(...changeGroup, true);
+        changeGroup = null;
+      }
+      diffString += change.value;
+    } else {
+      if (!changeGroup) changeGroup = ['', ''];
+      changeGroup[change.added ? 1 : 0] += change.value;
+    }
+
+    // Write change group if its the end
+    if (changeGroup && idx === diff.length - 1)
+      diffString += formatGitChange(...changeGroup, true);
+
+    return diffString;
+  }, '');
+
+  let resolved: z.infer<S> | undefined = undefined;
+  await haveUserUpdateContents(
+    diffLikeGit,
+    {
+      editor,
+      errorHead: 'Resolve conflict failed',
+      file: { type: 'tmp', prefix: 'gist-confict' },
+      tooltips: ['Resolve the conflict.'],
+    },
+    (contents) => {
+      try {
+        resolved = schema.parse(JSON.parse(contents));
+        return 'pass';
+      } catch (error) {
+        if (error instanceof SyntaxError)
+          return { errMessage: `Recieved invalid JSON: ${error.message}` };
+        else if (error instanceof z.ZodError)
+          return {
+            errMessage: `JSON does not match schema:\n${z.prettifyError(error)}`,
+          };
+        else throw error;
+      }
+    },
+  );
+
+  return resolved;
+};
+
 // GistData functions for easier use --------------
 
 type MakeGistParams<T extends z.ZodType> = Parameters<typeof makeGistData<T>>;
 
-export const handleGistConflict: MakeGistParams<z.ZodAny>[3] = async (
-  ours,
-  theirs,
-) => {
-  console.log(chalk.yellow('[w]'), `Pulled gist is different than local JSON`);
-  const oursOrTheirs = await select({
-    message: 'Want to use ours or theirs?',
-    choices: [
-      { value: 'ours', description: '(local JSON)' },
-      { value: 'theirs', description: '(the gist)' },
-    ] as const,
-  });
-  return oursOrTheirs === 'theirs' ? theirs : ours;
-};
+export const makeGistConflictHandler =
+  <S extends z.ZodType>(schema: S, editor?: string): MakeGistParams<S>[3] =>
+  async (ours, theirs) => {
+    console.log(
+      chalk.yellow('[w]'),
+      `Pulled gist is different than local JSON`,
+    );
+    const oursOrTheirs = await select({
+      message: 'Want to use ours or theirs?',
+      choices: [
+        { value: 'ours', description: '(local JSON)' },
+        { value: 'theirs', description: '(the gist)' },
+        { value: 'resolve', description: 'resolve manually' },
+      ] as const,
+    });
+
+    return oursOrTheirs === 'theirs'
+      ? theirs
+      : oursOrTheirs === 'ours'
+        ? ours
+        : await resolveConflictLikeGit(schema, ours, theirs, editor);
+  };
 
 export const handleInvalidGist: MakeGistParams<z.ZodAny>[4] = async (
   _,
