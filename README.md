@@ -1,4 +1,4 @@
-# Job Queue
+# job-queue
 
 The concept is modeling your todo-list as bite-sized jobs in a First-In, First-Out (FIFO) queue.
 The goal is to increase productivity.
@@ -8,7 +8,7 @@ The goal is to increase productivity.
 
 ## Install
 
-Can be installed system-wide if you have Node/NPM installed:
+Can be installed system-wide if you have NodeJS installed:
 
 ```
 npm install --global @uss-stargazer/job-queue
@@ -22,7 +22,33 @@ job-queue --help
 jobq --help
 ```
 
-## Workflow
+## Syncing with gists
+
+`job-queue` allows you to sync data files with a gist/gists on your GitHub account. This provides 
+cloud storage and makes the program more portable.
+
+To link to a gist, provide the gist ID and a GitHub access token in config.json, like:
+
+```json
+{
+  "$schema": "/job-queue/schemas/config.schema.json",
+  "jobqueue": {
+    "local": "/job-queue/jobqueue.json",
+    "ghGistId": "00000000000000000000000000000000",
+    "ghAccessToken": "ghp_000000000000000000000000000000000000"
+  },
+  "projectpool": {
+    "local": "/job-queue/projectpool.json",
+    "ghGistId": "00000000000000000000000000000000",
+    "ghAccessToken": "ghp_000000000000000000000000000000000000"
+  },
+  "schemas": "/job-queue/schemas",
+}
+```
+
+Your gist ID can be copied easily from the URL; usually something like `https://gist.github.com/USERNAME/GIST_ID`.
+
+## Sample Workflow
 
 - _\[Daemon\]_ Spontaneous, not fleshed out ideas get immediately added to the project pool as "inactive".
 - You should generally have an idea of a few projects you want to focus on at a time. For each, push

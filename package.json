@@ -1,6 +1,6 @@
 {
   "name": "@uss-stargazer/job-queue",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A CLI app to keep track of jobs/tasks built around a couple of JSON files.",
   "author": "uss-stargazer",
   "license": "Apache-2.0",
