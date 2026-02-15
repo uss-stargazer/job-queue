@@ -39,24 +39,21 @@ export const haveUserUpdateContents = async (
   const originalContents = await fs.readFile(file.path, { encoding: 'utf8' });
 
   while (true) {
-    // Open temp file in editor while also allowing user to abort
-
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const editorPromise = editInteractively(
+    contents = await editInteractively(
       file.path,
       contents,
       options?.editor,
       options?.tooltips,
     );
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Hacky hack to print abort after edit tooltips
-    const abortPromise = confirm(
-      { message: 'Type `y` to abort...' },
-      { signal },
-    )
-      .finally(() => clearNLines(1)) // Remove prompt line
-      .then(async (shouldAbort) => {
-        if (shouldAbort) {
+
+    if (check) {
+      const error = check(contents);
+      if (error === 'pass') {
+        break;
+      } else if (typeof error === 'object') {
+        console.log(chalk.red(`${options?.errorHead}:`), error.errMessage);
+
+        if (!(await inquirerConfirm('Try again?'))) {
           if (file.cleanup) await file.cleanup();
           else
             await fs.writeFile(file.path, originalContents, {
@@ -65,19 +62,6 @@ export const haveUserUpdateContents = async (
 
           throw new AbortError('User aborted action');
         }
-        return undefined;
-      });
-    contents = await Promise.race([editorPromise, abortPromise]);
-    controller.abort();
-    if (typeof contents !== 'string') return undefined;
-
-    if (check) {
-      const error = check(contents);
-      if (error === 'pass') {
-        break;
-      } else if (typeof error === 'object') {
-        console.log(chalk.red(`${options?.errorHead}:`), error.errMessage);
-        continue;
       }
     }
   }
