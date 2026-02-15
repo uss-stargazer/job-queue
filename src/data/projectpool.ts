@@ -127,5 +127,18 @@ export const updateProject = async (
     }
   }
 
+  // Check if user wants to delete referencing jobs
+  if (userDeletedProject && jobsReferencingProject.length > 0) {
+    const deleteJobReferences = await confirm({
+      message: `You are deleting this project. Would you like to delete all referencing jobs, too?`,
+    });
+    if (deleteJobReferences) {
+      jobQueue.data.queue = jobQueue.data.queue.filter(
+        (job) => job.project !== project.name,
+      );
+      await jobQueue.sync();
+    }
+  }
+
   return userDeletedProject ? 'deleted' : updatedProject;
 };
