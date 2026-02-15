@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import clear from 'clear';
 import figlet from 'figlet';
-import { select } from '@inquirer/prompts';
+import { search } from '@inquirer/prompts';
 import { ExitPromptError, Separator } from '@inquirer/core';
 import actions, {
   ActionName,
@@ -137,38 +137,55 @@ export default async function main(
 
   try {
     while (true) {
+      // Get the desired action
       console.log(); // New line for action seperation
-      const action = await select<ActionName | 'editData' | 'syncData'>({
+      const actionChoices = actionNames.map((action) => {
+        if (
+          actionsDependentOnJobs.includes(action) &&
+          data.jobqueue.data.queue.length === 0
+        )
+          return {
+            name: action,
+            value: action,
+            disabled: '(Empty job queue)',
+          };
+        else if (
+          actionsDependentOnProjects.includes(action) &&
+          data.projectpool.data.pool.length === 0
+        )
+          return {
+            name: action,
+            value: action,
+            disabled: '(Empty project pool)',
+          };
+        else return { name: action, value: action };
+      });
+      const action = await search<ActionName | 'editData' | 'syncData'>({
         message: 'Select action',
-        choices: [
-          ...actionNames.map((action) => {
-            if (
-              actionsDependentOnJobs.includes(action) &&
-              data.jobqueue.data.queue.length === 0
-            )
-              return {
-                name: action,
-                value: action,
-                disabled: '(Empty job queue)',
-              };
-            else if (
-              actionsDependentOnProjects.includes(action) &&
-              data.projectpool.data.pool.length === 0
-            )
-              return {
-                name: action,
-                value: action,
-                disabled: '(Empty project pool)',
-              };
-            else return { name: action, value: action };
-          }),
-          new Separator(),
-          { name: 'editData', value: 'editData' },
-          { name: 'syncData', value: 'syncData' },
-        ],
+        source: (partialAction) => {
+          const partialSet = new Set([...(partialAction?.toLowerCase() ?? [])]);
+          const filteredActions =
+            partialSet.size === 0
+              ? actionChoices
+              : actionChoices.filter((action) =>
+                  partialSet.isSubsetOf(
+                    new Set([...action.name.toLowerCase()]),
+                  ),
+                );
+          const otherActions = [
+            { name: 'editData', value: 'editData' },
+            { name: 'syncData', value: 'syncData' },
+          ] as const;
+          return filteredActions.length > 0
+            ? [...filteredActions, new Separator(), ...otherActions]
+            : otherActions.filter((action) =>
+                partialSet.isSubsetOf(new Set([...action.name.toLowerCase()])),
+              );
+        },
         pageSize: actionNames.length + 3,
       });
 
+      // Do the action
       if (action === 'editData') {
         await editData(data, data.configPath);
         data = await loadData(overrideConfigDir, overrideConfig, data);
