@@ -5,6 +5,7 @@ import { AbortError, reorder } from './utils/index.js';
 import { Job, updateJob } from './data/jobqueue.js';
 import { Project, updateProject } from './data/projectpool.js';
 import { WrappedData } from './data/index.js';
+import { ExitPromptError } from '@inquirer/core';
 
 export const actionNames = [
   'dequeueJob',
@@ -180,18 +181,24 @@ const actions: {
 
     // Get project name to edit
 
-    const projectName = await search({
-      message: 'Enter the name of the project to edit',
-      source: (partialProjectName) => {
-        const projectNames = pool.map((project) => project.name);
-        if (!partialProjectName) return projectNames;
+    let projectName;
+    try {
+      projectName = await search({
+        message: 'Enter the name of the project to edit',
+        source: (partialProjectName) => {
+          const projectNames = pool.map((project) => project.name);
+          if (!partialProjectName) return projectNames;
 
-        const partialSet = new Set([...partialProjectName]);
-        return projectNames.filter((projectName) =>
-          partialSet.isSubsetOf(new Set([...projectName])),
-        );
-      },
-    });
+          const partialSet = new Set([...partialProjectName]);
+          return projectNames.filter((projectName) =>
+            partialSet.isSubsetOf(new Set([...projectName])),
+          );
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof ExitPromptError)) throw error;
+      throw new AbortError('editProject aborted');
+    }
 
     const projectIdx = pool.findIndex(
       (project) => project.name === projectName,
