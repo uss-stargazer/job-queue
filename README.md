@@ -37,6 +37,16 @@ schemas, as it makes it much easier to work with.
 If this isn't available, the expected structures can be found in the Zod schemas in
 `src/data/$TARGET.ts` (at the top of each).
 
+### Config options
+
+- `editor`: string to edit file when filepath is appended. If not specified, is infered from 
+environment vars or from your Git configuration, if you have that installed.
+- `confirmGistUpdates`: whether it should check before pushing or pulling gists from GitHub, if you
+have any set up (see [here](#syncing-with-gists)).
+- `confirmOffline`: whether to check before going into offline mode when there are gists configured
+and `github.com` cannot be resolved.
+- `showBanner`: whether to show ASCII art banner on start
+
 ### Syncing with gists
 
 `job-queue` allows you to sync data files with a gist/gists on your GitHub account. This provides 
