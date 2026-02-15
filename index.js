@@ -36,6 +36,7 @@ program
     });
 
     await main(configDir, { ...options })
+      .finally(() => console.log()) // Seperation line
       .then(() => {
         console.log(chalk.cyanBright('🖖 Live long and prosper...'));
         process.exit();
