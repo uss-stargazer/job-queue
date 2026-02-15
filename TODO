@@ -1,6 +1,4 @@
 - main
     - when you delete project, delete referencing jobs
-    - logging after editInteractively tooltips has broken output
-    - functionality with vim and other terminal editors (maybe prompt for abort after invalid close?)
     - add error messages for config zod
     - take all zod metadata, requirements, and notes and put it in readme for users that don't check json schema
