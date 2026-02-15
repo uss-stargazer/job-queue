@@ -57,9 +57,10 @@ async function loadData(
         previousData &&
         simpleDeepCompare(config.data[key], previousData.config.data[key])
       ) {
-        if (key === 'jobqueue') data['jobqueue'] = previousData['jobqueue'];
-        else if (key === 'projectpool')
-          data['projectpool'] = previousData['projectpool'];
+        const saveData = data[key].data;
+        // @ts-expect-error TS doesn't recognize using key to index both data and previousData will yield same type
+        data[key] = previousData[key];
+        data[key].data = saveData;
       } else {
         // Online check connection if its required for a gist and it hasn't already been checked
         if (connectionError === undefined) {
