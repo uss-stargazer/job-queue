@@ -101,7 +101,7 @@ export const makeGistData = async <S extends z.ZodType>(
   const unlinkedPull: GistData<z.infer<S>>['pull'] = async () => {
     throw new Error('Cannot pull unlinked gist');
   };
-  const unlinkedPush: GistData<z.infer<S>>['pull'] = async () => {
+  const unlinkedPush: GistData<z.infer<S>>['push'] = async () => {
     throw new Error('Cannot push unlinked gist');
   };
 
