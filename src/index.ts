@@ -130,7 +130,7 @@ export default async function main(
 
   try {
     while (true) {
-      const action = await select<ActionName | 'editData' | 'sync'>({
+      const action = await select<ActionName | 'editData' | 'syncData'>({
         message: 'Select action',
         choices: [
           ...actionNames.map((action) => {
@@ -156,7 +156,7 @@ export default async function main(
           }),
           new Separator(),
           { name: 'editData', value: 'editData' },
-          { name: 'sync', value: 'sync' },
+          { name: 'syncData', value: 'syncData' },
         ],
         pageSize: actionNames.length + 3,
       });
@@ -164,7 +164,7 @@ export default async function main(
       if (action === 'editData') {
         await editData(data, data.configPath);
         data = await loadData(overrideConfigDir, overrideConfig, data);
-      } else if (action === 'sync') {
+      } else if (action === 'syncData') {
         await syncData(data);
       } else await actions[action](data);
 
