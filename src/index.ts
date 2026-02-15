@@ -82,7 +82,7 @@ async function loadData(
           !config.data.confirmGistUpdates ||
           (await inquirerConfirm(`Pull gist for ${key}?`))
         ) {
-          console.log(chalk.blue('[i]'), 'initial pull of gist for', key);
+          console.log(chalk.blue('[i]'), 'pulling', key);
           await data[key].pull();
         }
       }
@@ -112,7 +112,7 @@ async function syncData(data: WrappedData): Promise<void> {
       (!data.config.data.confirmGistUpdates ||
         (await inquirerConfirm(`Push gist for ${key}?`)))
     ) {
-      console.log(chalk.blue('[i]'), 'sync push of gist for', key);
+      console.log(chalk.blue('[i]'), 'pushing', key);
       await data[key].push();
     }
   }
