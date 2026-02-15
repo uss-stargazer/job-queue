@@ -51,8 +51,9 @@ export const ConfigSchema = z.object({
   ),
 
   editor: NonemptyString.optional().meta({title: "Editor command", description: "Command to run editor. Will be run like `<editor> /some/data.json` so make sure it waits."}),
-  confirmGistUpdates: z.boolean().optional().meta({description: "Whether to prompt before pushing or pulling a gist from GitHub."}),
-  confirmOffline: z.boolean().optional().meta({description: "Whether to confirm before using offline (if there are gists in config)."})
+  confirmGistUpdates: z.boolean().optional().describe( "Whether to prompt before pushing or pulling a gist from GitHub."),
+  confirmOffline: z.boolean().optional().describe("Whether to confirm before using offline (if there are gists in config)."),
+  showBanner: z.boolean().optional().describe("Show ASCII art banner on start.")
 });
 
 export type ConfigIn = z.input<typeof ConfigSchema>;

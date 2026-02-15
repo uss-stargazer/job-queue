@@ -12,10 +12,11 @@ import actions, {
 import { ConfigIn, getConfig, getDataPathFromConfig } from './data/config.js';
 import { getJobQueue } from './data/jobqueue.js';
 import { getProjectPool } from './data/projectpool.js';
-import { editData, WrappedData } from './data/index.js';
+import { dataNames, editData, WrappedData } from './data/index.js';
 import { simpleDeepCompare } from './utils/index.js';
 import dns from 'dns/promises';
 import { inquirerConfirm } from './utils/promptUser.js';
+import { isGistData } from './utils/gistData.js';
 
 async function loadData(
   overrideConfigDir: string,
@@ -102,10 +103,11 @@ async function loadData(
 }
 
 async function syncData(data: WrappedData): Promise<void> {
-  for (const key of ['jobqueue', 'projectpool'] as const) {
+  for (const key of dataNames) {
     await data[key].sync();
 
     if (
+      isGistData(data[key]) &&
       data[key].isLinked &&
       (!data.config.data.confirmGistUpdates ||
         (await inquirerConfirm(`Push gist for ${key}?`)))
@@ -120,13 +122,18 @@ export default async function main(
   overrideConfigDir?: string,
   overrideConfig?: Partial<ConfigIn>,
 ): Promise<void> {
-  clear();
-  console.log(
-    chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
-  );
-
   let data = await loadData(overrideConfigDir, overrideConfig);
-  console.log(); // New separation line
+
+  if (data.config.data.showBanner ?? true) {
+    if (data.config.data.showBanner === undefined) {
+      clear();
+      data.config.data.showBanner = false; // Don't show banner after first usage
+    }
+
+    console.log(
+      chalk.yellow(figlet.textSync('JobQueue', { horizontalLayout: 'full' })),
+    );
+  }
 
   try {
     while (true) {
