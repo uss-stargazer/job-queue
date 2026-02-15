@@ -137,6 +137,7 @@ export default async function main(
 
   try {
     while (true) {
+      console.log(); // New line for action seperation
       const action = await select<ActionName | 'editData' | 'syncData'>({
         message: 'Select action',
         choices: [
@@ -174,8 +175,6 @@ export default async function main(
       } else if (action === 'syncData') {
         await syncData(data);
       } else await actions[action](data);
-
-      console.log(); // New line for action seperation
     }
   } catch (error) {
     if (!(error instanceof ExitPromptError)) throw error;
