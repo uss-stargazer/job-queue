@@ -2,16 +2,16 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+
+import pkg from './package.json' with { type: 'json' };
 import main from './dist/index.js';
 
 const program = new Command();
 
 program
   .name('job-queue')
-  .description(
-    'A CLI app to keep track of jobs/tasks built around a couple of JSON files.',
-  )
-  .version('0.0.0')
+  .description(pkg.description)
+  .version(pkg.version)
   .option(
     '-c, --config <path>',
     'path to directory containing config.json (uses new system app dir by default)',
