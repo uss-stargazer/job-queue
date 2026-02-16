@@ -1,1 +1,2 @@
- 
+- fix aborting for editProject, editQueue, edit Data
+- coloring in edit Project based on status
